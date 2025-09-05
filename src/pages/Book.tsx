@@ -244,7 +244,7 @@ const InteractiveBook: React.FC = () => {
         {pdfError && <p className="text-red-500 mt-4 text-sm">{pdfError}</p>}
       </div>
        {/* --- PDF Viewer Modal --- */}
-      <PDFViewerModal pdfUrl={viewingPdf} onClose={() => setViewingPdf(null)} />
+       {viewingPdf && <PDFViewerModal pdfUrl={viewingPdf} onClose={() => setViewingPdf(null)} />}
     </div>
   );
 };
