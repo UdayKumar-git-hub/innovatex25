@@ -20,9 +20,7 @@ const InteractiveBook: React.FC = () => {
     {
       id: 'cover',
       type: 'cover',
-      title: 'The Journey Within',
-      subtitle: 'A Visual Collection',
-      icon: <BookHeart className="w-16 h-16" />,
+      image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' />,
     },
     // --- Content Pages with Images Only ---
     { id: 'page1', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
