@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
-import { HashRouter as Router, Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 // --- Navigation Data ---
 const navLinks = [
@@ -149,25 +149,5 @@ const Header = () => {
     );
 };
 
-// --- Main App Component (for demonstration) ---
-export default function App() {
-    return (
-        <Router>
-            <div className="bg-gray-50 text-gray-800 font-sans">
-                <Header />
-                <main className="pt-24 min-h-screen">
-                    <div className="max-w-4xl mx-auto px-6 text-center">
-                        <h1 className="text-5xl font-bold mt-12 mb-4">Header Component</h1>
-                        <p className="text-lg text-gray-600 mb-8">
-                            Scroll down to see the header hide and reappear.
-                        </p>
-                        <div className="h-[200vh] bg-gray-100 rounded-lg p-8 flex items-start justify-center">
-                           <p className="text-gray-400">Page Content Area</p>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        </Router>
-    );
-}
+export default Header;
 
