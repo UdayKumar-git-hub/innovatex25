@@ -12,6 +12,7 @@ const navLinks = [
   { name: 'Itinerary', href: '/itinerary' },
   { name: 'Rules', href: '/rules' },
   { name: 'T&C', href: '/terms' },
+  { name: 'Documentation', href: '/doc' },
 ];
 
 // --- Reusable Components ---
