@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X, FileText } from 'lucide-react';
 
 // Supabase will be imported dynamically inside the component
 
@@ -231,7 +231,17 @@ const InteractiveBook: React.FC = () => {
       {/* --- PDF Viewer Section --- */}
       <div className="w-full max-w-3xl mt-12 p-8 bg-white rounded-lg shadow-md text-center">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Event Documentation</h3>
-        <p className="text-gray-600 mb-6">For a detailed overview of the event, please view the official documentation PDF.</p>
+        <p className="text-gray-600 mb-6">For a detailed overview, click the preview or button below to open the documentation.</p>
+        
+        {/* PDF Preview Thumbnail */}
+        <div 
+          onClick={handleViewPdf}
+          className="mx-auto w-48 h-64 bg-gray-50 border-2 border-gray-200 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-gray-100 transition-all duration-300 mb-6 group"
+        >
+          <FileText className="w-16 h-16 text-gray-400 group-hover:text-blue-600 transition-colors" />
+          <p className="mt-4 text-sm font-semibold text-gray-600 group-hover:text-blue-700">InnovateX25.pdf</p>
+        </div>
+
         <div className="flex justify-center">
             <button
               onClick={handleViewPdf}
