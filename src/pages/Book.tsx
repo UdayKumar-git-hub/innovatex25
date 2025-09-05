@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, BookOpen, BookHeart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, BookHeart, Download } from 'lucide-react';
 
 interface PageContent {
   id: string;
@@ -172,8 +172,23 @@ const InteractiveBook: React.FC = () => {
        <div className="text-center mt-4 text-gray-500">
         <p className="text-sm">Use arrow keys or buttons to navigate</p>
        </div>
+
+      {/* --- PDF Download Section --- */}
+      <div className="w-full max-w-lg mt-12 p-6 bg-white rounded-lg shadow-md text-center">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">View Our Brochure</h3>
+        <p className="text-gray-600 mb-6">For a detailed overview of the event, including schedules and speaker bios, please download our official PDF brochure.</p>
+        <a
+          href="#" 
+          download
+          className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 text-white font-semibold rounded-full shadow-lg hover:bg-yellow-600 transition-all duration-300 hover:shadow-xl hover:scale-105 active:scale-95"
+        >
+          <Download className="w-5 h-5" />
+          Download PDF
+        </a>
+      </div>
     </div>
   );
 };
 
 export default InteractiveBook;
+
