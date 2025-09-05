@@ -69,8 +69,8 @@ const InteractiveBook: React.FC = () => {
 
   const getPageClass = (pageType: 'cover' | 'content' | 'back') => {
     switch(pageType) {
-      case 'cover': return 'bg-gradient-to-br from-amber-800 to-amber-900';
-      case 'back': return 'bg-gradient-to-br from-slate-700 to-slate-800';
+      case 'cover': return 'bg-gradient-to-br from-yellow-400 to-yellow-500';
+      case 'back': return 'bg-gradient-to-br from-yellow-500 to-yellow-600';
       default: return 'bg-white';
     }
   }
@@ -87,7 +87,7 @@ const InteractiveBook: React.FC = () => {
           style={{ transformStyle: 'preserve-3d', transform: 'rotateY(-15deg) rotateX(5deg)' }}
         >
           {/* Book Spine */}
-          <div className="absolute -left-6 top-0 w-6 h-full bg-gradient-to-r from-amber-900 via-amber-700 to-amber-900 rounded-l-md shadow-2xl transform -skew-y-1"></div>
+          <div className="absolute -left-6 top-0 w-6 h-full bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 rounded-l-md shadow-2xl transform -skew-y-1"></div>
           
           {/* Pages Stack Effect */}
           <div className="absolute top-1 right-1 w-full h-full bg-gray-100 rounded-r-md -z-10 shadow-inner"></div>
@@ -147,7 +147,7 @@ const InteractiveBook: React.FC = () => {
         <button
           onClick={prevPage}
           disabled={currentPage === 0 || isFlipping}
-          className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-amber-600 text-white hover:bg-amber-700 hover:shadow-xl hover:scale-110 active:scale-95"
+          className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-yellow-500 text-white hover:bg-yellow-600 hover:shadow-xl hover:scale-110 active:scale-95"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -156,7 +156,7 @@ const InteractiveBook: React.FC = () => {
           {pages.map((_, index) => (
             <div
               key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentPage ? 'bg-amber-600 w-6' : 'bg-gray-300'}`}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentPage ? 'bg-yellow-500 w-6' : 'bg-gray-300'}`}
             ></div>
           ))}
         </div>
@@ -164,17 +164,16 @@ const InteractiveBook: React.FC = () => {
         <button
           onClick={nextPage}
           disabled={currentPage === pageCount - 1 || isFlipping}
-          className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-amber-600 text-white hover:bg-amber-700 hover:shadow-xl hover:scale-110 active:scale-95"
+          className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-yellow-500 text-white hover:bg-yellow-600 hover:shadow-xl hover:scale-110 active:scale-95"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
       </div>
        <div className="text-center mt-4 text-gray-500">
-         <p className="text-sm">Use arrow keys or buttons to navigate</p>
+        <p className="text-sm">Use arrow keys or buttons to navigate</p>
        </div>
     </div>
   );
 };
 
 export default InteractiveBook;
-
