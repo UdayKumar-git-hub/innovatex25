@@ -25,7 +25,7 @@ const InteractiveBook: React.FC = () => {
       icon: <BookHeart className="w-16 h-16" />,
     },
     // --- Content Pages with Images Only ---
-    { id: 'page1', type: 'content', image: 'https://placehold.co/400x500/e0f2fe/0284c7?text=Dreams' },
+    { id: 'page1', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
     { id: 'page2', type: 'content', image: 'https://placehold.co/400x500/fef2f2/dc2626?text=Passion' },
     { id: 'page3', type: 'content', image: 'https://placehold.co/400x500/f0fdfa/0d9488?text=Adventure' },
     { id: 'page4', type: 'content', image: 'https://placehold.co/400x500/f0fdf4/16a34a?text=Memories' },
