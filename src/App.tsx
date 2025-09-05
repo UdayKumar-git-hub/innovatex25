@@ -10,6 +10,7 @@ import Echoes from './pages/Echoes';
 import Itinerary from './pages/Itinerary';
 import Rules from './pages/Rules';
 import Terms from './pages/Terms';
+import Book from './pages/Book';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/itinerary" element={<Itinerary />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/doc" element={<Book />} />
       </Routes>
     </Router>
   );
