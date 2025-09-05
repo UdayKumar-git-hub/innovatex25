@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
-import { HashRouter as Router, Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 
 // --- Navigation Data ---
 const navLinks = [
@@ -19,7 +18,7 @@ const navLinks = [
 const AnimatedLogo = () => (
   <div className="flex flex-col items-start flex-shrink-0">
     <span className="text-xs text-gray-500 tracking-wider">reelhaus.hyd presents</span>
-    <Link to="/" className="text-3xl font-extrabold relative overflow-hidden group">
+    <a href="#/" className="text-3xl font-extrabold relative overflow-hidden group">
       <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 drop-shadow-md">
         InnovateX25
       </span>
@@ -29,19 +28,32 @@ const AnimatedLogo = () => (
         animate={{ x: "150%" }}
         transition={{ duration: 2, repeat: Infinity, ease: "linear", delay: 1 }}
       />
-    </Link>
+    </a>
   </div>
 );
 
 // --- NavLink Component for Desktop ---
 const NavLink = ({ link, hoveredLink, setHoveredLink }) => {
-    const location = useLocation();
-    const isActive = location.pathname === link.href;
+    const [isActive, setIsActive] = useState(false);
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            const currentPath = window.location.hash.substring(1) || '/';
+            setIsActive(currentPath === link.href);
+        };
+
+        handleHashChange(); // Check on initial render
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => {
+            window.removeEventListener('hashchange', handleHashChange);
+        };
+    }, [link.href]);
 
     return (
-        <Link
+        <a
           key={link.name}
-          to={link.href}
+          href={`#${link.href === '/' ? '' : link.href}`}
           onMouseEnter={() => setHoveredLink(link.name)}
           className={`font-semibold relative py-2 transition-colors duration-300 hover:text-black text-sm tracking-wide ${isActive ? 'text-yellow-600' : 'text-gray-700'}`}
         >
@@ -53,7 +65,7 @@ const NavLink = ({ link, hoveredLink, setHoveredLink }) => {
               transition={{ type: 'spring', stiffness: 350, damping: 25 }}
             />
           )}
-        </Link>
+        </a>
     );
 };
 
@@ -126,3 +138,25 @@ const Header = () => {
     </>
   );
 };
+
+
+// --- Main App Component (for demonstration) ---
+export default function App() {
+    return (
+        <div className="bg-gray-50 text-gray-800 font-sans">
+            <Header />
+            <main className="pt-32 min-h-screen">
+                <div className="max-w-4xl mx-auto px-6 text-center">
+                    <h1 className="text-5xl font-bold mb-4">Welcome to InnovateX25</h1>
+                    <p className="text-lg text-gray-600 mb-8">
+                        The header now uses standard links to avoid router conflicts.
+                    </p>
+                    <div className="h-[200vh] bg-gray-100 rounded-lg p-8">
+                        <p>Content Area</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
+
