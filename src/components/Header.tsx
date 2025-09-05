@@ -142,6 +142,11 @@ const Header = () => {
 
 // --- Main App Component (for demonstration) ---
 export default function App() {
-
+    return (
+        <div className="bg-gray-50 text-gray-800 font-sans">
+            <Header />
+           
+        </div>
+    );
 }
 
