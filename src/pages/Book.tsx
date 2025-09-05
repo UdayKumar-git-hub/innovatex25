@@ -63,11 +63,10 @@ const InteractiveBook: React.FC = () => {
         const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
         
         // --- SUPABASE SETUP ---
-        // Replace with your actual Supabase URL and Anon Key
-        const supabaseUrl = 'YOUR_SUPABASE_URL';
-        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+        const supabaseUrl = 'https://yrrxcjmnptbolmbmbqkw.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnhjam1ucHRib2xtYm1icWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2MzAxODMsImV4cCI6MjA3MDIwNjE4M30.YlMdd1S6s3--xv-qtuNe9aXBitJtxCo9AG3SkFPVrcU';
         
-        if (supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseKey !== 'YOUR_SUPABASE_ANON_KEY') {
+        if (supabaseUrl && supabaseKey) {
           setSupabase(createClient(supabaseUrl, supabaseKey));
         }
       } catch (error) {
@@ -139,7 +138,7 @@ const InteractiveBook: React.FC = () => {
   const handleViewPdf = () => {
     setPdfError(null);
     if (!supabase) {
-      setPdfError("Supabase client is not initialized. Please add your URL and Key.");
+      setPdfError("Supabase client is not yet initialized. Please wait a moment.");
       return;
     }
     // Assumes your bucket is named 'public-documents' and is public.
