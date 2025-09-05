@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, BookOpen, BookHeart, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, Download, X } from 'lucide-react';
 
 interface PageContent {
   id: string;
@@ -10,10 +10,49 @@ interface PageContent {
   icon?: React.ReactNode;
 }
 
+// --- PDF Viewer Modal Component ---
+const PDFViewerModal = ({ pdfUrl, onClose }) => {
+  if (!pdfUrl) return null;
+
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.keyCode === 27) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-3 border-b bg-gray-50 rounded-t-lg">
+          <h3 className="text-lg font-semibold text-gray-700">Document Viewer</h3>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-all"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex-1 p-1">
+          <iframe src={pdfUrl} width="100%" height="100%" title="PDF Viewer" className="border-none rounded-b-lg"></iframe>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 const InteractiveBook: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFlipping, setIsFlipping] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
+  const [viewingPdf, setViewingPdf] = useState<string | null>(null);
 
   // Updated book content to be image-focused
   const pages: PageContent[] = [
@@ -73,6 +112,13 @@ const InteractiveBook: React.FC = () => {
       case 'back': return 'bg-gradient-to-br from-yellow-500 to-yellow-600';
       default: return 'bg-white';
     }
+  }
+  
+  const handleViewPdf = () => {
+    // URL-encode the filename to handle spaces and ensure it's a valid URL path
+    const pdfFileName = "InnovateX25 Documentation.pdf";
+    const pdfUrl = `/${encodeURIComponent(pdfFileName)}`;
+    setViewingPdf(pdfUrl);
   }
 
   return (
@@ -173,19 +219,22 @@ const InteractiveBook: React.FC = () => {
         <p className="text-sm">Use arrow keys or buttons to navigate</p>
        </div>
 
-      {/* --- PDF Download Section --- */}
-      <div className="w-full max-w-lg mt-12 p-6 bg-white rounded-lg shadow-md text-center">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">View Our Brochure</h3>
-        <p className="text-gray-600 mb-6">For a detailed overview of the event, including schedules and speaker bios, please download our official PDF brochure.</p>
-        <a
-          href="#" 
-          download
-          className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 text-white font-semibold rounded-full shadow-lg hover:bg-yellow-600 transition-all duration-300 hover:shadow-xl hover:scale-105 active:scale-95"
-        >
-          <Download className="w-5 h-5" />
-          Download PDF
-        </a>
+      {/* --- PDF Viewer Section --- */}
+      <div className="w-full max-w-3xl mt-12 p-8 bg-white rounded-lg shadow-md text-center">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Event Documentation</h3>
+        <p className="text-gray-600 mb-6">For a detailed overview of the event, please view the official documentation PDF.</p>
+        <div className="flex justify-center">
+            <button
+              onClick={handleViewPdf}
+              className="inline-flex items-center gap-3 px-8 py-4 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 hover:shadow-xl hover:scale-105 active:scale-95 text-lg"
+            >
+              <BookOpen className="w-6 h-6" />
+              View Documentation
+            </button>
+        </div>
       </div>
+       {/* --- PDF Viewer Modal --- */}
+      <PDFViewerModal pdfUrl={viewingPdf} onClose={() => setViewingPdf(null)} />
     </div>
   );
 };
