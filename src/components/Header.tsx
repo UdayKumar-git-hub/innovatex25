@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Link, useLocation } from 'react-router-dom';
 
 // --- Navigation Data ---
 const navLinks = [
@@ -148,6 +148,4 @@ const Header = () => {
         </>
     );
 };
-
-export default Header;
 
