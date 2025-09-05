@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, Users, Star } from 'lucide-react';
-import Footer from '../components/Footer';
+import { Calendar, Clock, MapPin, Users, Star, Award, Mic, Gift, Trophy } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -13,6 +12,17 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
 };
 
+const Footer = () => (
+    <footer className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 py-8">
+      <div className="max-w-6xl mx-auto px-6 text-center">
+        <p className="font-semibold">&copy; 2025 InnovateX'25. All Rights Reserved.</p>
+        <p className="text-gray-600 mt-2">Presented by reelhaus.hyd</p>
+        <p className="text-gray-500 mt-2">Contact: +91 9392449721, +91 9110387918</p>
+      </div>
+    </footer>
+  );
+
+
 const Itinerary: React.FC = () => {
   const scheduleData = [
     {
@@ -20,28 +30,28 @@ const Itinerary: React.FC = () => {
       date: "TBD",
       shifts: [
         {
-          time: "Morning Shift",
+          time: "9:00 AM - 12:00 PM",
           title: "Inauguration & Orientation",
-          description: "Welcome ceremony, event briefing, and team formations",
+          description: "The event kicks off with a formal inauguration, followed by an overview of the events, rules, and team preparations.",
           icon: Calendar,
           activities: [
-            "Registration and Welcome",
-            "Opening Ceremony",
-            "Event Rules & Guidelines",
-            "Team Introductions",
-            "Venue Tour"
+            "Lighting of the Lamp",
+            "Participant Settling & Team Kit Distribution",
+            "Introduction to InnovateX: Event Overview & Rules",
+            "Chief Guest Speech / Faculty Introduction",
+            "Event Kickstart Guide and Venue Allocation"
           ]
         },
         {
-          time: "Afternoon Shift",
-          title: "Events Kickstart",
-          description: "Begin the competition journey across all four pillars",
+          time: "1:00 PM - 4:00 PM",
+          title: "Events Commence",
+          description: "The competitions begin! Teams dive into the first phase of their respective challenges at their allocated venues.",
           icon: Clock,
           activities: [
-            "IPL Auction - Round 1",
-            "Brand Battles - Brief & Research",
-            "Young Innovators - Problem Identification",
-            "Echoes - Topic Announcement"
+            "IPL Auction",
+            "BrandBattles",
+            "Young Innovators",
+            "Echoes",
           ]
         }
       ]
@@ -51,27 +61,27 @@ const Itinerary: React.FC = () => {
       date: "TBD",
       shifts: [
         {
-          time: "Morning Shift",
-          title: "Competition Intensifies",
-          description: "Main event activities and challenges across all pillars",
+          time: "9:00 AM - 12:00 PM",
+          title: "Shift 1: Competitions Continue",
+          description: "The momentum continues as teams engage in the core activities of each event.",
           icon: Clock,
           activities: [
-            "IPL Auction - Strategic Bidding",
-            "Brand Battles - Campaign Development",
-            "Young Innovators - Solution Design",
-            "Echoes - Preliminary Rounds"
+            "IPL Auction",
+            "BrandBattles",
+            "Young Innovators",
+            "Echoes"
           ]
         },
         {
-          time: "Afternoon Shift",
-          title: "Skills Development",
-          description: "Continued competitions and skill enhancement sessions",
+          time: "1:00 PM - 4:00 PM",
+          title: "Shift 2: Strategic Deep Dive",
+          description: "The afternoon is dedicated to intensive sessions where strategies are refined and executed.",
           icon: Clock,
           activities: [
-            "Workshop Sessions",
-            "Mentorship Rounds",
-            "Peer Learning Activities",
-            "Progress Evaluations"
+            "IPL Auction",
+            "BrandBattles",
+            "Young Innovators",
+            "Echoes"
           ]
         }
       ]
@@ -81,29 +91,29 @@ const Itinerary: React.FC = () => {
       date: "TBD",
       shifts: [
         {
-          time: "Morning Shift",
-          title: "Grand Finale",
-          description: "Final rounds and ultimate challenges",
-          icon: Clock,
+          time: "9:00 AM - 10:30 AM",
+          title: "The Grand Finale",
+          description: "The final rounds of all competitions take place, leading up to the selection of the winners.",
+          icon: Trophy,
           activities: [
-            "IPL Auction - Final Squad Building",
-            "Brand Battles - Campaign Presentations",
-            "Young Innovators - Solution Pitches",
-            "Echoes - Championship Debates"
+            "IPL Auction - Final Rounds",
+            "BrandBattles - Final Pitches",
+            "Young Innovators - Final Presentations",
+            "Echoes - Final Debates"
           ]
         },
         {
-          time: "Afternoon Shift",
-          title: "Valedictory & Awards",
-          description: "Prize distribution, certificate handouts, and closing ceremony",
-          icon: MapPin,
+          time: "1:00 PM - 4:00 PM",
+          title: "Refreshments & Valedictory",
+          description: "The closing ceremony, celebrating the participants' hard work with awards, performances, and acknowledgments.",
+          icon: Award,
           highlight: true,
           activities: [
-            "Results Announcement",
-            "Prize Distribution",
-            "Certificate Ceremony",
-            "Closing Address",
-            "Networking Session"
+            "Prize Distribution Ceremony",
+            "Cultural Performances (optional)",
+            "Certificate Handouts to Participants",
+            "Vote of Thanks",
+            "Group Photos & Refreshments for All"
           ]
         }
       ]
@@ -126,7 +136,7 @@ const Itinerary: React.FC = () => {
             </h1>
           </div>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Your complete 3-day journey through innovation, strategy, and creativity at InnovateX25.
+            Your complete 3-day journey through innovation, strategy, and creativity at InnovateX'25.
           </p>
         </motion.div>
 
@@ -135,72 +145,29 @@ const Itinerary: React.FC = () => {
             <motion.div key={day.day} variants={itemVariants} className="relative">
               {/* Timeline connector */}
               {dayIndex < scheduleData.length - 1 && (
-                <div className="absolute left-8 top-32 w-1 h-64 bg-gradient-to-b from-blue-400 to-blue-600 hidden lg:block z-0"></div>
+                <div className="absolute left-1/2 -ml-0.5 w-1 h-full bg-gradient-to-b from-blue-200 to-blue-300 hidden lg:block z-0"></div>
               )}
               
-              <div className="lg:flex items-start space-y-8 lg:space-y-0 lg:space-x-12">
-                {/* Day Header */}
-                <div className="lg:w-1/4 relative z-10">
-                  <motion.div
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-2xl shadow-xl text-center"
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: 'spring', stiffness: 300 }}
-                  >
-                    <h3 className="text-3xl font-black text-white mb-2 premium-font">
-                      {day.day}
-                    </h3>
-                    <p className="text-blue-100 premium-font text-lg">{day.date}</p>
-                    <div className="mt-4 w-16 h-1 bg-white/50 mx-auto rounded-full"></div>
-                  </motion.div>
-                </div>
-                
-                {/* Shifts */}
-                <div className="lg:w-3/4 space-y-8">
-                  {day.shifts.map((shift, shiftIndex) => {
-                    const IconComponent = shift.icon;
-                    return (
-                      <motion.div
-                        key={shiftIndex}
-                        className={`p-8 rounded-2xl shadow-lg transition-all duration-300 transform hover:-translate-y-1 border-l-4 ${
-                          shift.highlight
-                            ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-500 shadow-yellow-200/70 hover:shadow-yellow-300'
-                            : 'bg-white/80 backdrop-blur-md border-blue-400 hover:shadow-xl'
-                        }`}
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ type: 'spring', stiffness: 300 }}
-                      >
-                        <div className="flex items-center mb-6">
-                          <div className="bg-blue-100 p-3 rounded-full mr-4">
-                            <IconComponent className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <span className="text-sm premium-font text-blue-700 font-semibold bg-blue-100 px-3 py-1 rounded-full">
-                              {shift.time}
-                            </span>
-                            <h4 className="text-2xl font-bold gradient-title premium-font mt-2">
-                              {shift.title}
-                            </h4>
-                          </div>
+              <div className="lg:flex items-center justify-center relative">
+                  <div className="lg:w-1/2 lg:pr-8">
+                    {day.shifts.filter((_, i) => i % 2 === 0).map((shift, shiftIndex) => (
+                        <ShiftCard key={shiftIndex} shift={shift} alignment="right" />
+                    ))}
+                  </div>
+                  <div className="hidden lg:flex w-20 h-20 bg-blue-500 rounded-full border-8 border-white shadow-lg items-center justify-center z-10">
+                     <span className="text-white font-bold text-lg">{day.day.split(' ')[1]}</span>
+                  </div>
+                  <div className="lg:w-1/2 lg:pl-8">
+                    {day.shifts.filter((_, i) => i % 2 !== 0).map((shift, shiftIndex) => (
+                        <ShiftCard key={shiftIndex} shift={shift} alignment="left" />
+                    ))}
+                  </div>
+                   <div className="lg:hidden text-center my-8">
+                        <div className="inline-block bg-blue-500 rounded-full p-4">
+                            <h3 className="text-3xl font-black text-white premium-font">{day.day}</h3>
+                            <p className="text-blue-100 premium-font text-lg">{day.date}</p>
                         </div>
-                        
-                        <p className="text-gray-600 mb-6 leading-relaxed">
-                          {shift.description}
-                        </p>
-                        
-                        {shift.activities && (
-                          <div className="grid md:grid-cols-2 gap-3">
-                            {shift.activities.map((activity, actIndex) => (
-                              <div key={actIndex} className="flex items-center p-3 bg-blue-50 rounded-lg">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></div>
-                                <span className="text-sm text-blue-800 font-medium">{activity}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                   </div>
               </div>
             </motion.div>
           ))}
@@ -229,4 +196,50 @@ const Itinerary: React.FC = () => {
   );
 };
 
+const ShiftCard = ({ shift, alignment }) => {
+    const IconComponent = shift.icon;
+    const alignClass = alignment === 'right' ? 'lg:text-right' : 'lg:text-left';
+    return(
+        <motion.div
+        className={`p-8 rounded-2xl shadow-lg transition-all duration-300 transform hover:-translate-y-1 border-l-4 mb-8 ${
+          shift.highlight
+            ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-500 shadow-yellow-200/70 hover:shadow-yellow-300'
+            : 'bg-white/80 backdrop-blur-md border-blue-400 hover:shadow-xl'
+        }`}
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: 'spring', stiffness: 300 }}
+      >
+        <div className={`flex items-center mb-6 ${alignment === 'right' ? 'lg:flex-row-reverse' : ''}`}>
+          <div className="bg-blue-100 p-3 rounded-full mx-4">
+            <IconComponent className="h-6 w-6 text-blue-600" />
+          </div>
+          <div className={alignClass}>
+            <span className="text-sm premium-font text-blue-700 font-semibold bg-blue-100 px-3 py-1 rounded-full">
+              {shift.time}
+            </span>
+            <h4 className="text-2xl font-bold gradient-title premium-font mt-2">
+              {shift.title}
+            </h4>
+          </div>
+        </div>
+        
+        <p className={`text-gray-600 mb-6 leading-relaxed ${alignClass}`}>
+          {shift.description}
+        </p>
+        
+        {shift.activities && (
+          <div className="grid md:grid-cols-2 gap-3">
+            {shift.activities.map((activity, actIndex) => (
+              <div key={actIndex} className={`flex items-center p-3 bg-blue-50 rounded-lg ${alignment === 'right' ? 'lg:flex-row-reverse' : ''}`}>
+                <div className="w-2 h-2 bg-blue-500 rounded-full mx-3 flex-shrink-0"></div>
+                <span className={`text-sm text-blue-800 font-medium ${alignClass} w-full`}>{activity}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    )
+}
+
 export default Itinerary;
+

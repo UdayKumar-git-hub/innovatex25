@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Users, Clock, Trophy, AlertTriangle, CheckCircle, BookOpen, Star } from 'lucide-react';
-import Footer from '../components/Footer';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -12,6 +11,16 @@ const itemVariants = {
   hidden: { opacity: 0, y: 30 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
 };
+
+const Footer = () => (
+    <footer className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 py-8">
+      <div className="max-w-6xl mx-auto px-6 text-center">
+        <p className="font-semibold">&copy; 2025 InnovateX'25. All Rights Reserved.</p>
+        <p className="text-gray-600 mt-2">Presented by reelhaus.hyd</p>
+        <p className="text-gray-500 mt-2">Contact: +91 9392449721, +91 9110387918</p>
+      </div>
+    </footer>
+  );
 
 const Rules: React.FC = () => {
   const generalRules = [
@@ -50,13 +59,13 @@ const Rules: React.FC = () => {
       "Intellectual property rights belong to participants",
       "Judges may ask technical questions during presentation"
     ],
-    "Echoes": [
-      "Teams will be assigned positions (For/Against) randomly",
-      "Preparation time is limited to 30 minutes",
-      "No external research materials allowed during debate",
-      "Respectful language and behavior mandatory",
-      "Time limits for each speaking segment are strictly enforced",
-      "Cross-examination must be relevant to the topic"
+    "Echoes (Mentorship Session)": [
+      "Respectful interaction between students and mentors is mandatory.",
+      "Come prepared with at least one academic or personal question.",
+      "No recording or sharing of conversations is allowed to ensure privacy.",
+      "Mentors must keep all discussions non-judgmental and confidential.",
+      "Time limits per team must be followed to ensure fairness for all.",
+      "Discussions must remain constructive, positive, and supportive."
     ]
   };
 
@@ -115,7 +124,7 @@ const Rules: React.FC = () => {
           </div>
           
           <div className="grid lg:grid-cols-2 gap-8">
-            {Object.entries(eventSpecificRules).map(([event, rules], index) => (
+            {Object.entries(eventSpecificRules).map(([event, rules]) => (
               <motion.div 
                 key={event}
                 className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-orange-200/50"

@@ -38,7 +38,7 @@ const pillars = [
     id: 4,
     title: "Echoes",
     icon: MessageSquare,
-    description: "Structured debates that sharpen logic, articulation, and leadership.",
+    description: "A unique mentorship and guidance-based session designed to create a safe, open, and supportive environment for students .",
     teamSize: "2-4",
     iconBg: "bg-red-100",
     iconColor: "text-red-500",
