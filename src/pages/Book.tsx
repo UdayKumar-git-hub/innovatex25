@@ -20,8 +20,8 @@ const InteractiveBook: React.FC = () => {
     {
       id: 'cover',
       type: 'cover',
-      image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' />,
-    },
+      image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg'},
+    
     // --- Content Pages with Images Only ---
     { id: 'page1', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
     { id: 'page2', type: 'content', image: 'https://placehold.co/400x500/fef2f2/dc2626?text=Passion' },
