@@ -142,21 +142,6 @@ const Header = () => {
 
 // --- Main App Component (for demonstration) ---
 export default function App() {
-    return (
-        <div className="bg-gray-50 text-gray-800 font-sans">
-            <Header />
-            <main className="pt-32 min-h-screen">
-                <div className="max-w-4xl mx-auto px-6 text-center">
-                    <h1 className="text-5xl font-bold mb-4">Welcome to InnovateX25</h1>
-                    <p className="text-lg text-gray-600 mb-8">
-                        The header now uses standard links to avoid router conflicts.
-                    </p>
-                    <div className="h-[200vh] bg-gray-100 rounded-lg p-8">
-                        <p>Content Area</p>
-                    </div>
-                </div>
-            </main>
-        </div>
-    );
+
 }
 
