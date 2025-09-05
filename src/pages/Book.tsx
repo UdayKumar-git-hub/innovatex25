@@ -20,9 +20,9 @@ const InteractiveBook: React.FC = () => {
     { id: 'page0', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
     
     // --- Content Pages with Images Only ---
-    { id: 'page1', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
-    { id: 'page2', type: 'content', image: 'https://placehold.co/400x500/fef2f2/dc2626?text=Passion' },
-    { id: 'page3', type: 'content', image: 'https://placehold.co/400x500/f0fdfa/0d9488?text=Adventure' },
+    { id: 'page1', type: 'content', image: 'https://i.postimg.cc/VknxMXKV/price.jpg' },
+    { id: 'page2', type: 'content', image: 'https://i.postimg.cc/vZrKDbBR/3rdpage.jpg' },
+    { id: 'page3', type: 'content', image: 'https://i.postimg.cc/R0VzBNTp/ipl-poster-Copy.jpg' },
     { id: 'page4', type: 'content', image: 'https://placehold.co/400x500/f0fdf4/16a34a?text=Memories' },
     { id: 'page5', type: 'content', image: 'https://placehold.co/400x500/f7fee7/65a30d?text=Growth' },
     { id: 'page6', type: 'content', image: 'https://placehold.co/400x500/f1f5f9/475569?text=Resilience' },
