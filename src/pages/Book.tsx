@@ -17,10 +17,7 @@ const InteractiveBook: React.FC = () => {
 
   // Updated book content to be image-focused
   const pages: PageContent[] = [
-    {
-      id: 'cover',
-      type: 'image',
-      image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg'},
+    { id: 'page0', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' }
     
     // --- Content Pages with Images Only ---
     { id: 'page1', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
