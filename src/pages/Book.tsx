@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, BookOpen, Download, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, X } from 'lucide-react';
+
+// Supabase will be imported dynamically inside the component
 
 interface PageContent {
   id: string;
@@ -21,7 +23,6 @@ const PDFViewerModal = ({ pdfUrl, onClose }) => {
       }
     };
     window.addEventListener('keydown', handleEsc);
-
     return () => {
       window.removeEventListener('keydown', handleEsc);
     };
@@ -53,12 +54,33 @@ const InteractiveBook: React.FC = () => {
   const [isFlipping, setIsFlipping] = useState(false);
   const bookRef = useRef<HTMLDivElement>(null);
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [supabase, setSupabase] = useState<any>(null);
 
-  // Updated book content to be image-focused
+  useEffect(() => {
+    const initSupabase = async () => {
+      try {
+        const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+        
+        // --- SUPABASE SETUP ---
+        // Replace with your actual Supabase URL and Anon Key
+        const supabaseUrl = 'YOUR_SUPABASE_URL';
+        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+        
+        if (supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseKey !== 'YOUR_SUPABASE_ANON_KEY') {
+          setSupabase(createClient(supabaseUrl, supabaseKey));
+        }
+      } catch (error) {
+        console.error("Error loading Supabase client:", error);
+        setPdfError("Failed to load necessary components.");
+      }
+    };
+    initSupabase();
+  }, []); // Run only once on mount
+
+
   const pages: PageContent[] = [
     { id: 'page0', type: 'content', image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg' },
-    
-    // --- Content Pages with Images Only ---
     { id: 'page1', type: 'content', image: 'https://i.postimg.cc/VknxMXKV/price.jpg' },
     { id: 'page2', type: 'content', image: 'https://i.postimg.cc/vZrKDbBR/3rdpage.jpg' },
     { id: 'page3', type: 'content', image: 'https://i.postimg.cc/R0VzBNTp/ipl-poster-Copy.jpg' },
@@ -75,7 +97,6 @@ const InteractiveBook: React.FC = () => {
     { id: 'page14', type: 'content', image: 'https://i.postimg.cc/KYQsrfBJ/day3.jpg' },
     { id: 'page15', type: 'content', image: 'https://i.postimg.cc/nLnPDgjX/optional.jpg' },
     { id: 'page16', type: 'content', image: 'https://i.postimg.cc/SQP3vg5P/o-fund.jpg' },
-    // --- Back Cover ---
     { id: 'page17', type: 'content', image: 'https://i.postimg.cc/VLbpQjPk/last.jpg' }
   ];
   
@@ -99,12 +120,13 @@ const InteractiveBook: React.FC = () => {
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (viewingPdf) return; // Don't flip pages if modal is open
       if (event.key === 'ArrowRight') nextPage();
       if (event.key === 'ArrowLeft') prevPage();
     };
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentPage, isFlipping]);
+  }, [currentPage, isFlipping, viewingPdf]);
 
   const getPageClass = (pageType: 'cover' | 'content' | 'back') => {
     switch(pageType) {
@@ -115,21 +137,34 @@ const InteractiveBook: React.FC = () => {
   }
   
   const handleViewPdf = () => {
-    // URL-encode the filename to handle spaces and ensure it's a valid URL path
-    const pdfFileName = "InnovateX25 Documentation.pdf";
-    const pdfUrl = `/${encodeURIComponent(pdfFileName)}`;
-    setViewingPdf(pdfUrl);
+    setPdfError(null);
+    if (!supabase) {
+      setPdfError("Supabase client is not initialized. Please add your URL and Key.");
+      return;
+    }
+    // Assumes your bucket is named 'public-documents' and is public.
+    const { data } = supabase
+      .storage
+      .from('public-documents') 
+      .getPublicUrl('InnovateX25 Documentation.pdf');
+
+    if (data.publicUrl) {
+      setViewingPdf(data.publicUrl);
+    } else {
+      setPdfError("Could not retrieve PDF. Please check the file name and bucket permissions in Supabase.");
+      console.error("Error getting public URL from Supabase.");
+    }
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 font-sans">
       <div 
         ref={bookRef}
         className="relative"
         style={{ perspective: '1500px' }}
       >
         <div 
-          className="relative w-80 h-[480px] md:w-96 md:h-[560px] transition-transform duration-500"
+          className="relative w-80 h-[480px] md:w-96 md:h-[560px] transition-transform duration-500 hover:rotate-y-0 hover:rotate-x-0"
           style={{ transformStyle: 'preserve-3d', transform: 'rotateY(-15deg) rotateX(5deg)' }}
         >
           {/* Book Spine */}
@@ -150,38 +185,13 @@ const InteractiveBook: React.FC = () => {
                   ${index > currentPage ? 'opacity-0 translate-x-full z-0' : ''}
                   ${getPageClass(page.type)}`}
               >
-                {page.type === 'cover' && (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-white p-6">
-                    <div className="mb-6 opacity-80">{page.icon}</div>
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 drop-shadow-lg">{page.title}</h1>
-                    <p className="text-lg opacity-90 drop-shadow">{page.subtitle}</p>
-                    <div className="absolute bottom-8 left-8 right-8 border-t border-white/30 pt-4">
-                      <p className="text-sm opacity-70">Interactive Edition</p>
-                    </div>
-                  </div>
-                )}
-
-                {page.type === 'content' && (
-                  <div className="flex-1 flex items-center justify-center p-2">
-                    {page.image && (
-                      <img 
-                        src={page.image} 
-                        alt={`Page ${index}`}
-                        className="w-full h-full object-cover" 
-                      />
-                    )}
-                  </div>
-                )}
-
-                {page.type === 'back' && (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-white p-6">
-                    <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">{page.title}</h2>
-                    <p className="text-lg opacity-90 drop-shadow mb-8">{page.subtitle}</p>
-                    <div className="w-16 h-16 border-2 border-white/30 rounded-full flex items-center justify-center">
-                      <BookOpen className="w-8 h-8" />
-                    </div>
-                  </div>
-                )}
+                 {page.image && (
+                    <img 
+                      src={page.image} 
+                      alt={`Page ${index + 1}`}
+                      className="w-full h-full object-cover" 
+                    />
+                  )}
               </div>
             ))}
           </div>
@@ -232,6 +242,7 @@ const InteractiveBook: React.FC = () => {
               View Documentation
             </button>
         </div>
+        {pdfError && <p className="text-red-500 mt-4 text-sm">{pdfError}</p>}
       </div>
        {/* --- PDF Viewer Modal --- */}
       <PDFViewerModal pdfUrl={viewingPdf} onClose={() => setViewingPdf(null)} />
