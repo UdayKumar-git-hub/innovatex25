@@ -28,21 +28,16 @@ const InteractiveBook: React.FC = () => {
     { id: 'page6', type: 'content', image: 'https://i.postimg.cc/RZmBgPJB/brand-outcomes.jpg' },
     { id: 'page7', type: 'content', image: 'https://i.postimg.cc/NGyBF2vW/youngposter.jpg' },
     { id: 'page8', type: 'content', image: 'https://i.postimg.cc/PfBhwftN/youngoutcomes.jpg' },
-    { id: 'page9', type: 'content', image: 'https://i.postimg.cc/cCt9WNjb/iternary.jpg' },
-    { id: 'page10', type: 'content', image: 'https://placehold.co/400x500/ecfeff/0891b2?text=Purpose' },
-    { id: 'page11', type: 'content', image: 'https://placehold.co/400x500/fdf2f8/d946ef?text=Laughter' },
-    { id: 'page12', type: 'content', image: 'https://placehold.co/400x500/f5f3ff/7c3aed?text=Wisdom' },
-    { id: 'page13', type: 'content', image: 'https://placehold.co/400x500/fee2e2/b91c1c?text=Connection' },
-    { id: 'page14', type: 'content', image: 'https://placehold.co/400x500/e0f2fe/0ea5e9?text=Stillness' },
-    { id: 'page15', type: 'content', image: 'https://placehold.co/400x500/fdf4ff/c026d3?text=Forgiveness' },
-    { id: 'page16', type: 'content', image: 'https://placehold.co/400x500/fffbeb/d97706?text=Legacy' },
+    { id: 'page9', type: 'content', image: 'https://i.postimg.cc/J4Z8cwnx/echoes.jpg' },
+    { id: 'page10', type: 'content', image: 'https://i.postimg.cc/sgd8Vv39/echoesfinal.jpg' },
+    { id: 'page11', type: 'content', image: 'https://i.postimg.cc/cCt9WNjb/iternary.jpg' },
+    { id: 'page12', type: 'content', image: 'https://i.postimg.cc/76WsjLBz/day1.jpg' },
+    { id: 'page13', type: 'content', image: 'https://i.postimg.cc/NMMCNXxY/Day2.jpg' },
+    { id: 'page14', type: 'content', image: 'https://i.postimg.cc/KYQsrfBJ/day3.jpg' },
+    { id: 'page15', type: 'content', image: 'https://i.postimg.cc/nLnPDgjX/optional.jpg' },
+    { id: 'page16', type: 'content', image: 'https://i.postimg.cc/SQP3vg5P/o-fund.jpg' },
     // --- Back Cover ---
-    {
-      id: 'back',
-      type: 'back',
-      title: 'The End',
-      subtitle: 'Your own journey is just beginning.',
-    }
+    { id: 'page17', type: 'content', image: 'https://i.postimg.cc/VLbpQjPk/last.jpg' }
   ];
   
   const pageCount = pages.length;
