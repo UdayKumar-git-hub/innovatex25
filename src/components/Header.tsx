@@ -32,10 +32,7 @@ const DesktopNav: React.FC = () => {
   const location = useLocation();
 
   return (
-    <nav
-      onMouseLeave={() => setHoveredLink(null)}
-      className="hidden md:flex items-center gap-10"
-    >
+    <nav onMouseLeave={() => setHoveredLink(null)} className="hidden md:flex items-center gap-10">
       {navLinks.map((link) => (
         <a
           key={link.name}
@@ -46,9 +43,7 @@ const DesktopNav: React.FC = () => {
           }}
           onMouseEnter={() => setHoveredLink(link.name)}
           className={`font-semibold relative py-2 transition-colors duration-300 text-sm tracking-wide ${
-            location.pathname === link.href
-              ? "text-yellow-600"
-              : "text-gray-700 hover:text-black"
+            location.pathname === link.href ? "text-yellow-600" : "text-gray-700 hover:text-black"
           }`}
         >
           {link.name}
@@ -72,7 +67,7 @@ const MobileMenu: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => vo
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-gradient-to-br from-yellow-50 via-white to-gray-100/95 backdrop-blur-xl z-40 md:hidden pt-20"
+        className="fixed inset-0 bg-white backdrop-blur z-40 md:hidden pt-20"
       >
         <nav className="flex flex-col items-center justify-center h-full space-y-10">
           {navLinks.map((link, index) => (
@@ -122,9 +117,7 @@ const Header: React.FC = () => {
       >
         <motion.div
           className="backdrop-blur-lg border-b border-gray-200/60 shadow-sm"
-          animate={{
-            backgroundColor: isScrolled ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,1)",
-          }}
+          animate={{ backgroundColor: isScrolled ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,1)" }}
           transition={{ duration: 0.35 }}
         >
           <div className="max-w-7xl mx-auto px-6 lg:px-12 pr-6 lg:pr-12">
@@ -142,18 +135,9 @@ const Header: React.FC = () => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="md:hidden p-2 z-50 rounded-lg bg-white/70 shadow-sm backdrop-blur hover:bg-white transition"
               >
-                <motion.div
-                  className="w-6 h-0.5 bg-gray-800 my-1 rounded"
-                  animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
-                />
-                <motion.div
-                  className="w-6 h-0.5 bg-gray-800 my-1 rounded"
-                  animate={isOpen ? { opacity: 0 } : { opacity: 1 }}
-                />
-                <motion.div
-                  className="w-6 h-0.5 bg-gray-800 my-1 rounded"
-                  animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
-                />
+                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }} />
+                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { opacity: 0 } : { opacity: 1 }} />
+                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }} />
               </motion.button>
             </div>
           </div>
