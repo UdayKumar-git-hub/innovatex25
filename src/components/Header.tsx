@@ -17,7 +17,7 @@ const navLinks = [
 // --- Components ---
 const AnimatedLogo: React.FC = () => (
   <Link to="/" className="flex flex-col items-start">
-    <span className="text-xs text-gray-500 tracking-wider uppercase">reelhaus.hyd presents</span>
+    <span className="text-xs text-gray-500 tracking-wider ">reelhaus.hyd presents</span>
     <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600">
       InnovateX25
     </span>
