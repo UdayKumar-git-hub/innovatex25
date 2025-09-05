@@ -4,7 +4,6 @@ import { Link, useLocation } from 'react-router-dom';
 
 // --- Navigation Data ---
 const navLinks = [
-  { name: 'Home', href: '/' },
   { name: 'IPL Auction', href: '/ipl' },
   { name: 'Brand Battles', href: '/brand-battles' },
   { name: 'Innovators', href: '/innovators' },
@@ -15,16 +14,14 @@ const navLinks = [
   { name: 'Documentation', href: '/doc' },
 ];
 
-// --- Reusable Components ---
+// --- Components ---
 const AnimatedLogo: React.FC = () => (
-  <div className="flex flex-col items-start">
+  <Link to="/" className="flex flex-col items-start">
     <span className="text-xs text-gray-500 tracking-wider uppercase">reelhaus.hyd presents</span>
-    <Link to="/" className="text-3xl font-extrabold relative overflow-hidden">
-      <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 drop-shadow-lg">
-        InnovateX25
-      </span>
-    </Link>
-  </div>
+    <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600">
+      InnovateX25
+    </span>
+  </Link>
 );
 
 const DesktopNav: React.FC = () => {
@@ -32,7 +29,7 @@ const DesktopNav: React.FC = () => {
   const location = useLocation();
 
   return (
-    <nav onMouseLeave={() => setHoveredLink(null)} className="hidden md:flex items-center gap-10">
+    <nav className="hidden md:flex items-center gap-10 ml-40" onMouseLeave={() => setHoveredLink(null)}>
       {navLinks.map((link) => (
         <a
           key={link.name}
@@ -120,26 +117,22 @@ const Header: React.FC = () => {
           animate={{ backgroundColor: isScrolled ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,1)" }}
           transition={{ duration: 0.35 }}
         >
-          <div className="max-w-7xl mx-auto px-6 lg:px-12 pr-6 lg:pr-12">
-            <div className="flex justify-between items-center h-20">
-              {/* Left: Logo */}
-              <AnimatedLogo />
+          <div className="max-w-7xl mx-auto px-6 lg:px-12 pr-6 lg:pr-12 flex justify-between items-center h-20">
+            {/* Left: Logo */}
+            <AnimatedLogo />
 
-              {/* Center: Nav */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <DesktopNav />
-              </div>
+            {/* Center: Nav */}
+            <DesktopNav />
 
-              {/* Mobile Menu Toggle */}
-              <motion.button
-                onClick={() => setIsOpen(!isOpen)}
-                className="md:hidden p-2 z-50 rounded-lg bg-white/70 shadow-sm backdrop-blur hover:bg-white transition"
-              >
-                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }} />
-                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { opacity: 0 } : { opacity: 1 }} />
-                <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }} />
-              </motion.button>
-            </div>
+            {/* Mobile Menu Toggle */}
+            <motion.button
+              onClick={() => setIsOpen(!isOpen)}
+              className="md:hidden p-2 z-50 rounded-lg bg-white/70 shadow-sm backdrop-blur hover:bg-white transition"
+            >
+              <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }} />
+              <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { opacity: 0 } : { opacity: 1 }} />
+              <motion.div className="w-6 h-0.5 bg-gray-800 my-1 rounded" animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }} />
+            </motion.button>
           </div>
         </motion.div>
       </motion.header>
