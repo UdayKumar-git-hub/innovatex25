@@ -19,7 +19,7 @@ const InteractiveBook: React.FC = () => {
   const pages: PageContent[] = [
     {
       id: 'cover',
-      type: 'cover',
+      type: 'image',
       image: 'https://i.postimg.cc/Sj0ZNvbN/innovatex25-Recovered.jpg'},
     
     // --- Content Pages with Images Only ---
