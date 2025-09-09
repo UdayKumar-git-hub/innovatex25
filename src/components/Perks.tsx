@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { DollarSign, Users2, Gift, Award, DivideIcon as LucideIcon } from 'lucide-react';
+import { DollarSign, Users2, Gift, Award, LucideIcon } from 'lucide-react';
 
 // --- Data Structure ---
 const perks = [
@@ -211,11 +211,10 @@ const MagneticButton: React.FC<{text: string}> = ({ text }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
-        <motion.a
-            href="/register"
+        <motion.button
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="relative bg-yellow-400 text-black font-bold px-10 py-4 text-lg rounded-full inline-block"
+            className="relative bg-yellow-400 text-black font-bold px-10 py-4 text-lg rounded-full"
             whileHover={{ scale: 1.05, boxShadow: '0px 10px 30px rgba(0,0,0,0.1)' }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -231,7 +230,7 @@ const MagneticButton: React.FC<{text: string}> = ({ text }) => {
                  animate={{ scale: isHovered ? 1.3 : 0, opacity: isHovered ? 1 : 0 }}
                  transition={{ duration: 0.3 }}
             />
-        </motion.a>
+        </motion.button>
     );
 };
 
