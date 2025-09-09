@@ -8,7 +8,7 @@ const navLinks = [
     { name: 'Register', href: '/register' },
     { name: 'IPL Auction', href: '/ipl' },
     { name: 'Brand Battles', href: '/brand-battles' },
-    { name: 'Innovators', href: '/innovators' },
+    { name: 'youngInnovators', href: '/innovators' },
     { name: 'Echoes', href: '/echoes' },
     { name: 'Itinerary', href: '/itinerary' },
     { name: 'Rules', href: '/rules' },
