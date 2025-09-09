@@ -12,8 +12,7 @@ import Rules from './pages/Rules';
 import Terms from './pages/Terms';
 import Book from './pages/Book';
 import Register from './pages/Register';
-import Success from "./pages/Success"
-
+import Success from './pages/Success';
 
 function App() {
   return (
@@ -37,3 +36,4 @@ function App() {
 }
 
 export default App;
+
