@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 import { 
   Users, 
   Trophy, 
@@ -61,6 +63,8 @@ const Register: React.FC = () => {
     })),
     agreedToRules: false
   });
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -173,32 +177,54 @@ const Register: React.FC = () => {
     const amountInPaise = Math.round(paymentDetails.total * 100);
 
     const options = {
-        key: "rzp_test_RFPjS89YJb6J7f", // Your Razorpay Test Key ID
+        key: "rzp_test_RFPjS89YJb6J7f", // IMPORTANT: Replace with your actual Razorpay KEY ID
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
         description: `Team Registration for ${formData.teamName}`,
-        image: "https://i.imgur.com/your-logo.png", // **IMPORTANT**: Replace with your actual logo URL
-        
-        // **BEST PRACTICE**: In a real app, you should create an order on your server
-        // and pass the `order_id` here. This is more secure.
-        // order_id: "order_xyz_from_your_server",
+        image: "https://i.imgur.com/your-logo.png", // TODO: Replace with your actual logo URL
 
-        handler: function (response: any) {
+        handler: async function (response: any) {
             console.log('Payment Successful:', response);
-            alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`);
             
-            // **CRITICAL**: You must verify the payment signature on your server
-            // to confirm the payment is authentic. Do not trust the client-side response alone.
-            // 1. Send `response.razorpay_payment_id`, `response.razorpay_order_id`, 
-            //    and `response.razorpay_signature` to your server.
-            // 2. Your server verifies the signature using your Razorpay secret.
-            // 3. If verification is successful, save the registration details to your database.
-            
-            console.log('Final Form Data Submitted:', formData);
-            setIsLoading(false);
-            // Optionally, you can redirect to a success page.
-            // window.location.href = '/thank-you';
+            try {
+                const registrationData = {
+                    team_name: formData.teamName,
+                    team_size: formData.teamSize,
+                    grade: formData.members[0].grade,
+                    interests: formData.interests,
+                    other_interest: formData.otherInterest,
+                    superpower: formData.superpower,
+                    members: formData.members.slice(0, formData.teamSize),
+                    payment_id: response.razorpay_payment_id,
+                    total_amount: paymentDetails.total
+                };
+
+                const { data, error } = await supabase
+                    .from('registrations')
+                    .insert([registrationData])
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+
+                console.log('Successfully saved to Supabase:', data);
+                navigate('/success', { 
+                    state: { 
+                        teamName: formData.teamName,
+                        paymentId: response.razorpay_payment_id 
+                    } 
+                });
+
+            } catch (error) {
+                console.error('CRITICAL: Error saving to Supabase after payment:', error);
+                alert(
+                    `Your payment was successful (ID: ${response.razorpay_payment_id}), but we couldn't save your registration. Please contact support with your Payment ID.`
+                );
+            } finally {
+                setIsLoading(false);
+            }
         },
         prefill: {
             name: formData.members[0].fullName,
@@ -208,11 +234,11 @@ const Register: React.FC = () => {
         notes: {
             team_name: formData.teamName,
             team_size: formData.teamSize,
-            team_grade: formData.members[0].grade, // Adding team grade
-            team_leader_email: formData.members[0].email, // Adding leader's email for records
+            team_grade: formData.members[0].grade,
+            team_leader_email: formData.members[0].email,
         },
         theme: {
-            color: "#FBBF24", // Yellow theme color
+            color: "#FBBF24",
             backdrop_color: "rgba(0, 0, 0, 0.6)"
         },
         modal: {
@@ -511,7 +537,7 @@ const Register: React.FC = () => {
                         <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
                       </div>
                       <p className="text-yellow-700 mb-2">
-                        Register before [Insert Deadline Date] and get a <strong>₹50 discount per team!</strong>
+                        Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong>
                       </p>
                       <p className="text-yellow-800 font-semibold">
                         Early Bird Price: ₹449 per person (Regular: ₹499)
