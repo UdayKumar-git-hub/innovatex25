@@ -122,6 +122,7 @@ const ShimmeringText: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const MagneticButton: React.FC = () => {
+      }
     const ref = useRef<HTMLButtonElement>(null);
     const x = useMotionValue(0);
     const y = useMotionValue(0);
@@ -160,6 +161,7 @@ const MagneticButton: React.FC = () => {
             Register Now!
         </motion.a>
     )
+  )
 }
 
 interface ContactItemProps {
