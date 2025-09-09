@@ -226,7 +226,7 @@ const Register: React.FC = () => {
         >
           <div className="flex items-center justify-center mb-4">
             <Sparkles className="h-8 w-8 text-yellow-500 mr-3" />
-            <h1 className="text-4xl md:text-5xl font-extrabold text-Yellow-600">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-600">
               InnovateX25 Registration
             </h1>
           </div>
