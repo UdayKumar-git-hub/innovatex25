@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -35,8 +35,17 @@ interface FormData {
   agreedToRules: boolean;
 }
 
+// For TypeScript to recognize the Razorpay object on the window
+interface RazorpayWindow extends Window {
+    Razorpay: any;
+}
+
+declare const window: RazorpayWindow;
+
+
 const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -52,6 +61,17 @@ const Register: React.FC = () => {
     })),
     agreedToRules: false
   });
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+        document.body.removeChild(script);
+    }
+  }, []);
 
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
@@ -142,14 +162,57 @@ const Register: React.FC = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
-  const handleSubmit = async () => {
-    if (!isStepValid()) {
-        alert("Please make sure you've agreed to the rules!");
+  const handlePayment = async () => {
+    setIsLoading(true);
+
+    const paymentDetails = calculateTotal();
+    const amountInPaise = Math.round(paymentDetails.total * 100);
+
+    const options = {
+        key: "rzp_test_RFPjS89YJb6J7f", // IMPORTANT: Replace with your Razorpay Test Key ID
+        amount: amountInPaise,
+        currency: "INR",
+        name: "InnovateX25 Registration",
+        description: `Team Registration for ${formData.teamName}`,
+        // image: "/your_logo.png", // Optional: Add your logo URL here
+        handler: function (response: any) {
+            console.log('Payment Successful:', response);
+            alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`);
+            
+            // You would typically verify the payment signature on your server here
+            // and then save the registration details to your database.
+            console.log('Final Form Data Submitted:', formData);
+            setIsLoading(false);
+            // Optionally, you can redirect to a success page.
+        },
+        prefill: {
+            name: formData.members[0].fullName,
+            email: formData.members[0].email,
+            contact: formData.members[0].phoneNumber,
+        },
+        notes: {
+            team_name: formData.teamName,
+            team_size: formData.teamSize,
+        },
+        theme: {
+            color: "#FBBF24",
+        },
+        modal: {
+            ondismiss: function () {
+                console.log('Payment modal dismissed.');
+                setIsLoading(false);
+            }
+        }
+    };
+
+    if (!window.Razorpay) {
+        alert("Razorpay SDK failed to load. Please check your internet connection and try again.");
+        setIsLoading(false);
         return;
     }
-    // Here you would typically submit to your backend/Supabase
-    console.log('Form submitted:', formData);
-    alert('Registration submitted successfully! Payment instructions will be sent to your email.');
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   return (
@@ -509,12 +572,18 @@ const Register: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
-              disabled={!formData.agreedToRules}
-              className="flex items-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors"
+              onClick={handlePayment}
+              disabled={!formData.agreedToRules || isLoading}
+              className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60"
             >
-              Submit Registration
-              <Check className="w-5 h-5 ml-2" />
+              {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                  <>
+                      Proceed to Payment
+                      <CreditCard className="w-5 h-5 ml-2" />
+                  </>
+              )}
             </button>
           )}
         </div>
@@ -539,4 +608,5 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
 
