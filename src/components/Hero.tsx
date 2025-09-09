@@ -138,7 +138,7 @@ const Hero: React.FC = () => {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <MagneticButton darkMode={darkMode} />
+            <MagneticButton darkMode={darkMode} href="/register" />
           </motion.div>
         </motion.div>
       </motion.div>
@@ -181,14 +181,15 @@ const Pillar: React.FC<{ name: string; description: string; icon: React.ElementT
   </motion.div>
 );
 
-const MagneticButton: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
+const MagneticButton: React.FC<{ darkMode: boolean; href?: string }> = ({ darkMode, href = "#" }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <motion.button
+    <motion.a
+      href={href}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative font-bold px-10 py-4 text-lg rounded-full ${
+      className={`relative font-bold px-10 py-4 text-lg rounded-full inline-block text-center ${
         darkMode ? 'bg-white text-yellow-600' : 'bg-yellow-400 text-black'
       }`}
       whileHover={{ scale: 1.05, boxShadow: '0px 10px 30px rgba(0,0,0,0.1)' }}
@@ -208,7 +209,7 @@ const MagneticButton: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
         animate={{ scale: isHovered ? 1.3 : 0, opacity: isHovered ? 1 : 0 }}
         transition={{ duration: 0.3 }}
       />
-    </motion.button>
+    </motion.a>
   );
 };
 

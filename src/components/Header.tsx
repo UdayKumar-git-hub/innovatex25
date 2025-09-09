@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 // --- Navigation Data ---
 const navLinks = [
     { name: 'Home', href: '/' },
+    { name: 'Register', href: '/register' },
     { name: 'IPL Auction', href: '/ipl' },
     { name: 'Brand Battles', href: '/brand-battles' },
     { name: 'Innovators', href: '/innovators' },

@@ -124,7 +124,7 @@ const Perks: React.FC = () => {
             </h3>
             <p className="text-gray-600 mb-8 max-w-xl mx-auto">
               Join hundreds of students in this transformative experience. Register now and be part of InnovateX25!
-            </p>
+              <a href="/register">Register Today!</a>
             <MagneticButton text="Register Today!" />
           </div>
         </motion.div>
@@ -211,10 +211,11 @@ const MagneticButton: React.FC<{text: string}> = ({ text }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
-        <motion.button
+        <motion.a
+            href="/register"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="relative bg-yellow-400 text-black font-bold px-10 py-4 text-lg rounded-full"
+            className="relative bg-yellow-400 text-black font-bold px-10 py-4 text-lg rounded-full inline-block"
             whileHover={{ scale: 1.05, boxShadow: '0px 10px 30px rgba(0,0,0,0.1)' }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -230,7 +231,7 @@ const MagneticButton: React.FC<{text: string}> = ({ text }) => {
                  animate={{ scale: isHovered ? 1.3 : 0, opacity: isHovered ? 1 : 0 }}
                  transition={{ duration: 0.3 }}
             />
-        </motion.button>
+        </motion.a>
     );
 };
 

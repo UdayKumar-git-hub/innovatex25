@@ -11,6 +11,7 @@ import Itinerary from './pages/Itinerary';
 import Rules from './pages/Rules';
 import Terms from './pages/Terms';
 import Book from './pages/Book';
+import Register from './pages/Register';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/rules" element={<Rules />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/doc" element={<Book />} />
+        <Route path="/register" element={<Register />} />
       </Routes>
     </Router>
   );

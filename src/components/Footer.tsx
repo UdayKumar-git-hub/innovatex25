@@ -86,7 +86,7 @@ const Footer: React.FC = () => {
             <h4 className="text-2xl font-bold mb-6 text-yellow-400">Ready to Innovate?</h4>
             <p className="text-gray-300 mb-6">
               Don't miss out. Showcase your skills and connect with fellow innovators.
-            </p>
+              <a href="/register">Register Now</a>
             <MagneticButton />
           </motion.div>
         </motion.div>
@@ -143,12 +143,13 @@ const MagneticButton: React.FC = () => {
     };
 
     return (
-        <motion.button 
+        <motion.a
+            href="/register"
             ref={ref}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             style={{ x: springX, y: springY }}
-            className="bg-yellow-400 text-black font-bold px-8 py-4 rounded-lg transition-shadow duration-300 relative"
+            className="bg-yellow-400 text-black font-bold px-8 py-4 rounded-lg transition-shadow duration-300 relative inline-block"
             whileHover={{ 
                 scale: 1.05,
                 boxShadow: "0px 0px 40px rgba(250, 204, 21, 0.9)",
@@ -157,7 +158,7 @@ const MagneticButton: React.FC = () => {
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
         >
             Register Now!
-        </motion.button>
+        </motion.a>
     )
 }
 
