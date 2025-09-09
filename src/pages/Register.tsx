@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// No longer importing from a local file to resolve the issue.
-// import { supabase } from './supabaseClient'; 
 import { 
   Users, 
   Trophy, 
@@ -16,18 +14,10 @@ import {
   Phone,
   User, 
   CreditCard,
-  Sparkles
+  Sparkles,
+  PartyPopper,
+  AlertTriangle
 } from 'lucide-react';
-
-// --- Dummy useNavigate hook ---
-const useNavigate = () => {
-    return (path, options) => {
-        console.log(`Navigating to ${path} with state:`, options?.state);
-        // In a real app, this would change the URL. Here, we'll just log it.
-        alert(`Registration successful! You would be redirected to ${path}.`);
-    };
-};
-
 
 interface TeamMember {
   fullName: string;
@@ -61,10 +51,13 @@ const Register: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [supabase, setSupabase] = useState<any>(null); // State to hold the client
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: ''});
+  const [postPaymentError, setPostPaymentError] = useState('');
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
-    challenges: ['ipl', 'brand', 'innovators', 'echoes'], // All challenges are mandatory now
+    challenges: ['ipl', 'brand', 'innovators', 'echoes'],
     interests: [],
     otherInterest: '',
     superpower: '',
@@ -76,8 +69,6 @@ const Register: React.FC = () => {
     })),
     agreedToRules: false
   });
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     // Load Razorpay Script
@@ -92,12 +83,13 @@ const Register: React.FC = () => {
     supabaseScript.async = true;
 
     supabaseScript.onload = () => {
-      // Supabase is now available on the window object
-      const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; // IMPORTANT: Replace
-      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE'; // IMPORTANT: Replace
+      // --- IMPORTANT ---
+      // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS FOR THIS TO WORK
+      const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; 
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
+      // -----------------
       
-      // Check if credentials are provided and the script is loaded
-      if (supabaseUrl && supabaseUrl !== 'https://ytjnonkfkhcpkijhvlqi.supabase.co' && supabaseAnonKey && supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE' && window.supabase) {
+      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
         console.log("Supabase client initialized successfully.");
@@ -108,7 +100,6 @@ const Register: React.FC = () => {
     document.body.appendChild(supabaseScript);
 
     return () => {
-        // Cleanup scripts on component unmount
         if (document.body.contains(razorpayScript)) {
             document.body.removeChild(razorpayScript);
         }
@@ -142,7 +133,6 @@ const Register: React.FC = () => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
 
-    // If the team leader's grade is changed, update all other members' grades.
     if (index === 0 && field === 'grade') {
         for (let i = 1; i < formData.teamSize; i++) {
             newMembers[i] = { ...newMembers[i], grade: value };
@@ -169,13 +159,7 @@ const Register: React.FC = () => {
     const platformFee = priceAfterDiscount * platformFeeRate;
     const total = priceAfterDiscount + platformFee;
 
-    return {
-        subtotal,
-        teamDiscount,
-        priceAfterDiscount,
-        platformFee,
-        total
-    };
+    return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
   };
 
   const isStepValid = () => {
@@ -213,12 +197,12 @@ const Register: React.FC = () => {
         return;
     }
     setValidationError('');
+    setPostPaymentError('');
     setIsLoading(true);
 
     const paymentDetails = calculateTotal();
     const amountInPaise = Math.round(paymentDetails.total * 100);
 
-    // Enhanced notes object for detailed record-keeping on Razorpay dashboard
     const notesData = {
       team_name: formData.teamName,
       team_size: formData.teamSize,
@@ -232,12 +216,12 @@ const Register: React.FC = () => {
     };
 
     const options = {
-        key: "rzp_test_RFPjS89YJb6J7f", // Your actual Razorpay Key ID
+        key: "rzp_test_RFPjS89YJb6J7f",
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
         description: `Fee for Team '${formData.teamName}' with ${formData.teamSize} members.`,
-        image: "https://i.ibb.co/L5T1x6m/reelhaus-logo.png", // Your direct image link
+        image: "https://i.ibb.co/L5T1x6m/reelhaus-logo.png",
         
         handler: async function (response: any) {
             console.log('Payment Successful:', response);
@@ -257,7 +241,7 @@ const Register: React.FC = () => {
                 
                 if (!supabase) {
                     console.error("Supabase client is not initialized. Check your credentials in Register.jsx.");
-                    throw new Error("Database connection is not configured.");
+                    throw new Error("Supabase is not connected. Please check credentials.");
                 }
 
                 const { data, error } = await supabase
@@ -270,17 +254,16 @@ const Register: React.FC = () => {
                 }
 
                 console.log('Successfully saved to Supabase:', data);
-                navigate('/success', { 
-                    state: { 
-                        teamName: formData.teamName,
-                        paymentId: response.razorpay_payment_id 
-                    } 
+                setFinalPaymentInfo({
+                    teamName: formData.teamName,
+                    paymentId: response.razorpay_payment_id
                 });
+                setRegistrationComplete(true);
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error('CRITICAL: Error saving to Supabase after payment:', error);
-                alert(
-                    `Your payment was successful (ID: ${response.razorpay_payment_id}), but we couldn't save your registration. Please contact support with your Payment ID.`
+                setPostPaymentError(
+                    `Your payment was successful (ID: ${response.razorpay_payment_id}), but we couldn't save your registration. Please contact support with this Payment ID.`
                 );
             } finally {
                 setIsLoading(false);
@@ -305,7 +288,7 @@ const Register: React.FC = () => {
     };
 
     if (!window.Razorpay) {
-        setValidationError("Payment gateway failed to load. Please check your internet connection and try again.");
+        setValidationError("Payment gateway failed to load. Please check your internet and try again.");
         setIsLoading(false);
         return;
     }
@@ -313,11 +296,33 @@ const Register: React.FC = () => {
     const rzp = new window.Razorpay(options);
     rzp.open();
   };
+  
+  if (registrationComplete) {
+      return (
+          <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
+              <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto"
+              >
+                  <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
+                  <p className="text-gray-700 mb-4">
+                      Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.
+                  </p>
+                  <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
+                      <p>Your Payment ID is:</p>
+                      <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
+                  </div>
+                  <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
+              </motion.div>
+          </div>
+      )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
       <div className="max-w-4xl mx-auto px-6">
-        {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -340,7 +345,6 @@ const Register: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
             {[1, 2, 3, 4].map((step, index) => (
@@ -365,7 +369,6 @@ const Register: React.FC = () => {
           </div>
         </div>
 
-        {/* Form Steps */}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -430,7 +433,7 @@ const Register: React.FC = () => {
                 <div className="space-y-8">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
-                      All teams will compete in all challenges. Get ready for an epic showdown!
+                      All teams will compete in all challenges. Get ready!
                     </label>
                     <div className="grid md:grid-cols-2 gap-4">
                       {challenges.map((challenge) => {
@@ -586,6 +589,17 @@ const Register: React.FC = () => {
                   </h2>
 
                   <div className="space-y-6">
+                    {postPaymentError && (
+                         <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
+                           <div className='flex'>
+                             <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
+                             <div>
+                               <p className="font-bold">Registration Error</p>
+                               <p>{postPaymentError}</p>
+                             </div>
+                           </div>
+                         </div>
+                    )}
                     <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
                       <div className="flex items-center mb-4">
                         <Sparkles className="w-6 h-6 text-yellow-600 mr-2" />
@@ -651,7 +665,6 @@ const Register: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation Buttons */}
         <div className="flex justify-between mt-8">
           <button
             onClick={prevStep}
@@ -689,7 +702,6 @@ const Register: React.FC = () => {
           )}
         </div>
 
-        {/* Contact Info */}
         <div className="mt-12 text-center bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Questions? Contact the event crew:</h3>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
