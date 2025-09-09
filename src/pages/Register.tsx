@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from './supabaseClient';
+// To run this locally, you'd need a routing library like react-router-dom
+// For this example, we'll create a dummy navigate function.
+// import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Trophy, 
@@ -18,6 +19,16 @@ import {
   CreditCard,
   Sparkles
 } from 'lucide-react';
+
+// --- Dummy useNavigate hook ---
+const useNavigate = () => {
+    return (path, options) => {
+        console.log(`Navigating to ${path} with state:`, options?.state);
+        // In a real app, this would change the URL. Here, we'll just log it.
+        alert(`Registration successful! You would be redirected to ${path}.`);
+    };
+};
+
 
 interface TeamMember {
   fullName: string;
@@ -37,17 +48,20 @@ interface FormData {
   agreedToRules: boolean;
 }
 
-// For TypeScript to recognize the Razorpay object on the window
-interface RazorpayWindow extends Window {
+// For TypeScript to recognize the Razorpay and Supabase objects on the window
+interface CustomWindow extends Window {
     Razorpay: any;
+    supabase: any;
 }
 
-declare const window: RazorpayWindow;
+declare const window: CustomWindow;
 
 
 const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const [supabase, setSupabase] = useState<any>(null);
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -67,13 +81,41 @@ const Register: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
+    // Load Razorpay Script
+    const razorpayScript = document.createElement('script');
+    razorpayScript.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    razorpayScript.async = true;
+    document.body.appendChild(razorpayScript);
+
+    // Load Supabase Script
+    const supabaseScript = document.createElement('script');
+    supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    supabaseScript.async = true;
+
+    supabaseScript.onload = () => {
+      // Supabase is now available on the window object
+      const supabaseUrl = 'YOUR_SUPABASE_URL'; // IMPORTANT: Replace
+      const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; // IMPORTANT: Replace
+      
+      // Check if credentials are still placeholders
+      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
+        const { createClient } = window.supabase;
+        setSupabase(createClient(supabaseUrl, supabaseAnonKey));
+      } else {
+        console.warn("Supabase credentials are placeholders or the script failed to load. Database operations will be disabled.");
+      }
+    };
+    document.body.appendChild(supabaseScript);
+
 
     return () => {
-        document.body.removeChild(script);
+        // Cleanup scripts on component unmount
+        if (document.body.contains(razorpayScript)) {
+            document.body.removeChild(razorpayScript);
+        }
+        if (document.body.contains(supabaseScript)) {
+            document.body.removeChild(supabaseScript);
+        }
     }
   }, []);
 
@@ -168,22 +210,36 @@ const Register: React.FC = () => {
 
   const handlePayment = async () => {
     if (!isStepValid()) {
-        alert("Please ensure you've filled out all required fields and agreed to the rules.");
+        setValidationError("Please ensure you've agreed to the rules before proceeding.");
         return;
     }
+    setValidationError('');
     setIsLoading(true);
 
     const paymentDetails = calculateTotal();
     const amountInPaise = Math.round(paymentDetails.total * 100);
 
+    // Enhanced notes object for detailed record-keeping on Razorpay dashboard
+    const notesData = {
+      team_name: formData.teamName,
+      team_size: formData.teamSize,
+      team_grade: formData.members[0].grade,
+      ...formData.members.slice(0, formData.teamSize).reduce((acc, member, index) => {
+        acc[`member_${index + 1}_name`] = member.fullName;
+        acc[`member_${index + 1}_email`] = member.email;
+        acc[`member_${index + 1}_phone`] = member.phoneNumber;
+        return acc;
+      }, {} as Record<string, any>) // Added type assertion for accumulator
+    };
+
     const options = {
-        key: "pl_RFR6ryFpGKZkJV", // IMPORTANT: Replace with your actual Razorpay KEY ID
+        key: "YOUR_RAZORPAY_KEY_ID", // IMPORTANT: Replace with your actual Razorpay Key ID from your dashboard
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
-        description: `Team Registration for ${formData.teamName}`,
-        image: "https://i.imgur.com/your-logo.png", // TODO: Replace with your actual logo URL
-
+        description: `Fee for Team '${formData.teamName}' with ${formData.teamSize} members.`,
+        image: "https://placehold.co/300x300/FBBF24/FFFFFF?text=IX25", // A placeholder logo
+        
         handler: async function (response: any) {
             console.log('Payment Successful:', response);
             
@@ -199,6 +255,11 @@ const Register: React.FC = () => {
                     payment_id: response.razorpay_payment_id,
                     total_amount: paymentDetails.total
                 };
+                
+                if (!supabase) {
+                    console.error("Supabase client not initialized. Please check your URL and Key.");
+                    throw new Error("Database connection is not configured.");
+                }
 
                 const { data, error } = await supabase
                     .from('registrations')
@@ -231,12 +292,7 @@ const Register: React.FC = () => {
             email: formData.members[0].email,
             contact: formData.members[0].phoneNumber,
         },
-        notes: {
-            team_name: formData.teamName,
-            team_size: formData.teamSize,
-            team_grade: formData.members[0].grade,
-            team_leader_email: formData.members[0].email,
-        },
+        notes: notesData, // Using the new, more detailed notes object
         theme: {
             color: "#FBBF24",
             backdrop_color: "rgba(0, 0, 0, 0.6)"
@@ -250,7 +306,7 @@ const Register: React.FC = () => {
     };
 
     if (!window.Razorpay) {
-        alert("Razorpay SDK failed to load. Please check your internet connection and try again.");
+        setValidationError("Payment gateway failed to load. Please check your internet connection and try again.");
         setIsLoading(false);
         return;
     }
@@ -546,7 +602,7 @@ const Register: React.FC = () => {
 
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
-                       <div className="space-y-3 text-gray-700">
+                        <div className="space-y-3 text-gray-700">
                           <div className="flex justify-between">
                               <span>Team of {formData.teamSize} × ₹449</span>
                               <span>₹{paymentDetails.subtotal.toLocaleString()}</span>
@@ -584,6 +640,11 @@ const Register: React.FC = () => {
                         By checking this box, our team agrees to the rules and is ready to bring our A-game!
                       </label>
                     </div>
+                    {validationError && (
+                        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
+                            {validationError}
+                        </div>
+                    )}
                   </div>
                 </div>
               )
@@ -649,3 +710,4 @@ const Register: React.FC = () => {
 }; 
 
 export default Register;
+
