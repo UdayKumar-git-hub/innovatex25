@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { Phone, Mail, Instagram } from 'lucide-react';
 
 // --- Animation Variants ---
@@ -34,12 +34,12 @@ const Footer: React.FC = () => {
     <footer className="relative bg-black text-white py-24 overflow-hidden" style={{ perspective: '1000px' }}>
       {/* Animated Aurora Background */}
       <div className="absolute inset-0 z-0 opacity-50">
-        <motion.div 
+        <motion.div
           className="absolute top-0 left-0 w-[150%] h-[150%] bg-[radial-gradient(circle_at_20%_30%,_rgba(250,204,21,0.2)_0%,_rgba(250,204,21,0)_25%)]"
           animate={{ x: ['-20%', '20%'], y: ['-20%', '20%'] }}
           transition={{ duration: 20, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
         />
-        <motion.div 
+        <motion.div
           className="absolute bottom-0 right-0 w-[150%] h-[150%] bg-[radial-gradient(circle_at_80%_70%,_rgba(253,224,71,0.15)_0%,_rgba(253,224,71,0)_20%)]"
           animate={{ x: ['20%', '-20%'], y: ['20%', '-20%'] }}
           transition={{ duration: 25, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
@@ -54,7 +54,7 @@ const Footer: React.FC = () => {
         viewport={{ once: true, amount: 0.2 }}
         style={{ transformStyle: 'preserve-3d' }}
       >
-        <motion.div 
+        <motion.div
           className="grid lg:grid-cols-3 gap-12"
           style={{ transform: 'rotateX(10deg)' }}
         >
@@ -70,29 +70,29 @@ const Footer: React.FC = () => {
               Unleashing the X-Factor through strategy, creativity, and belief in transformative ideas.
             </p>
           </motion.div>
-          
+
           {/* Contact Section */}
           <motion.div className="lg:col-span-1" variants={itemVariants}>
-             <h4 className="text-2xl font-bold mb-6 text-yellow-400">Get in Touch</h4>
+            <h4 className="text-2xl font-bold mb-6 text-yellow-400">Get in Touch</h4>
             <div className="space-y-5">
               <ContactItem icon={<Phone size={22} />} text="+91 9392449721 / +91 9110387918" />
               <ContactItem icon={<Mail size={22} />} text="reelhaus.hyd@gmail.com" />
               <ContactItem icon={<Instagram size={22} />} text="@reelhaus.hyd" href="https://instagram.com/reelhaus.hyd" />
             </div>
           </motion.div>
-          
+
           {/* CTA Section */}
           <motion.div className="lg:col-span-1" variants={itemVariants}>
             <h4 className="text-2xl font-bold mb-6 text-yellow-400">Ready to Innovate?</h4>
             <p className="text-gray-300 mb-6">
               Don't miss out. Showcase your skills and connect with fellow innovators.
-              <a href="/register">Register Now</a>
+            </p>
             <MagneticButton />
           </motion.div>
         </motion.div>
-        
+
         {/* Bottom Bar */}
-        <motion.div 
+        <motion.div
           className="mt-20 pt-8 border-t border-gray-800 text-center"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -111,18 +111,18 @@ const Footer: React.FC = () => {
 // --- Reusable Sub-Components ---
 
 const ShimmeringText: React.FC<{ text: string }> = ({ text }) => (
-    <>
-      {text}
-      <motion.span
-        className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)]"
-        animate={{ x: ['-100%', '100%'] }}
-        transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: 'linear' }}
-      />
-    </>
+  <>
+    {text}
+    <motion.span
+      className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)]"
+      animate={{ x: ['-100%', '100%'] }}
+      transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: 'linear' }}
+    />
+  </>
 );
 
 const MagneticButton: React.FC = () => {
-      }
+    // The premature "}" was removed from here
     const ref = useRef<HTMLButtonElement>(null);
     const x = useMotionValue(0);
     const y = useMotionValue(0);
@@ -151,7 +151,7 @@ const MagneticButton: React.FC = () => {
             onMouseLeave={handleMouseLeave}
             style={{ x: springX, y: springY }}
             className="bg-yellow-400 text-black font-bold px-8 py-4 rounded-lg transition-shadow duration-300 relative inline-block"
-            whileHover={{ 
+            whileHover={{
                 scale: 1.05,
                 boxShadow: "0px 0px 40px rgba(250, 204, 21, 0.9)",
             }}
@@ -160,8 +160,8 @@ const MagneticButton: React.FC = () => {
         >
             Register Now!
         </motion.a>
-    )
-  )
+    );
+    // The extra ")" was removed from here
 }
 
 interface ContactItemProps {
@@ -172,7 +172,7 @@ interface ContactItemProps {
 
 const ContactItem: React.FC<ContactItemProps> = ({ icon, text, href }) => {
     const Component = href ? 'a' : 'div';
-    
+
     return (
         <motion.div
             className="flex items-center group"
@@ -186,10 +186,10 @@ const ContactItem: React.FC<ContactItemProps> = ({ icon, text, href }) => {
                 <div className="text-yellow-400">{icon}</div>
             </motion.div>
             <Component
-              href={href}
-              target={href ? "_blank" : undefined}
-              rel={href ? "noopener noreferrer" : undefined}
-              className={`text-gray-200 text-lg ${href ? 'hover:text-yellow-300' : ''} transition-colors duration-300`}
+                href={href}
+                target={href ? "_blank" : undefined}
+                rel={href ? "noopener noreferrer" : undefined}
+                className={`text-gray-200 text-lg ${href ? 'hover:text-yellow-300' : ''} transition-colors duration-300`}
             >
                 {text}
             </Component>
@@ -198,4 +198,3 @@ const ContactItem: React.FC<ContactItemProps> = ({ icon, text, href }) => {
 }
 
 export default Footer;
-
