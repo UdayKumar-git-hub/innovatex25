@@ -238,7 +238,7 @@ const Register: React.FC = () => {
         currency: "INR",
         name: "InnovateX25 Registration",
         description: `Fee for Team '${formData.teamName}' with ${formData.teamSize} members.`,
-        image: "https://placehold.co/300x300/FBBF24/FFFFFF?text=IX25", // A placeholder logo
+        image: "https://ibb.co/BKTcxNqM", // A placeholder logo
         
         handler: async function (response: any) {
             console.log('Payment Successful:', response);
