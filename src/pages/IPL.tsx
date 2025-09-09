@@ -14,7 +14,8 @@ import {
   Megaphone,
   Scale,
   Calendar,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 
 // Animation variants for Framer Motion
@@ -50,20 +51,6 @@ const ObjectiveCard = ({ icon: Icon, title, children }) => (
     <p className="text-gray-600 text-sm leading-relaxed">{children}</p>
   </motion.div>
 );
-
-// Helper component for Judging Criteria Bars
-const CriteriaBar = ({ label, percentage, color }) => (
-    <div>
-        <div className="flex justify-between items-center mb-1">
-            <span className="font-semibold text-gray-700">{label}</span>
-            <span className={`font-bold ${color}`}>{percentage}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full" style={{ width: `${percentage}%` }}></div>
-        </div>
-    </div>
-);
-
 
 const IplAuction = () => {
   const [activeTab, setActiveTab] = useState('roles');
@@ -181,36 +168,17 @@ const IplAuction = () => {
             </div>
         </motion.div>
 
-        {/* Judging & Schedule */}
-        <div className="grid lg:grid-cols-2 gap-12 mb-20">
-            <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-blue-200/50">
-                <div className="flex items-center mb-6">
-                    <Scale className="h-8 w-8 text-blue-500 mr-3" />
-                    <h2 className="text-3xl font-bold gradient-title-blue">Judging Criteria</h2>
-                </div>
-                <div className="space-y-6">
-                    <CriteriaBar label="Team Balance" percentage={40} color="text-blue-600" />
-                    <CriteriaBar label="Budget Utilization" percentage={20} color="text-blue-600" />
-                    <CriteriaBar label="Impactful Picks" percentage={20} color="text-blue-600" />
-                    <CriteriaBar label="Innovation & Strategy" percentage={20} color="text-blue-600" />
-                </div>
-            </motion.div>
+        {/* Placeholder for Judging & Schedule */}
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-blue-200/50 mb-20 text-center">
+            <div className="flex justify-center items-center mb-4">
+                <Info className="h-8 w-8 text-blue-500 mr-3" />
+                <h2 className="text-3xl font-bold gradient-title-blue">Judging & Schedule</h2>
+            </div>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+                The detailed judging criteria and the full event schedule will be announced at the event to ensure a fair and exciting competition for all teams.
+            </p>
+        </motion.div>
 
-            <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-blue-200/50">
-                <div className="flex items-center mb-6">
-                    <Calendar className="h-8 w-8 text-blue-500 mr-3" />
-                    <h2 className="text-3xl font-bold gradient-title-blue">Event Schedule</h2>
-                </div>
-                <ul className="space-y-3">
-                    <li className="flex items-center p-3 bg-blue-50 rounded-lg"><span className="font-bold text-blue-800 w-32">10:00 – 10:15</span><span className="text-gray-700">Introduction & Rules</span></li>
-                    <li className="flex items-center p-3 bg-blue-50 rounded-lg"><span className="font-bold text-blue-800 w-32">10:15 – 10:30</span><span className="text-gray-700">Mock Auction Round</span></li>
-                    <li className="flex items-center p-3 bg-blue-50 rounded-lg"><span className="font-bold text-blue-800 w-32">10:30 – 12:00</span><span className="text-gray-700">Live Auction</span></li>
-                    <li className="flex items-center p-3 bg-blue-50 rounded-lg"><span className="font-bold text-blue-800 w-32">12:00 – 12:15</span><span className="text-gray-700">Squad Finalization</span></li>
-                    <li className="flex items-center p-3 bg-blue-50 rounded-lg"><span className="font-bold text-blue-800 w-32">12:15 – 12:30</span><span className="text-gray-700">Evaluation & Winner</span></li>
-                </ul>
-            </motion.div>
-        </div>
-        
         {/* Key Information Tabs */}
         <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-blue-200/50 mb-20 text-center">
           <div className="flex flex-col sm:flex-row justify-center border-b border-blue-200 mb-6">
@@ -233,7 +201,6 @@ const IplAuction = () => {
           </div>
         </motion.div>
 
-
         {/* Final CTA */}
         <motion.div variants={itemVariants} className="bg-gradient-to-r from-blue-600 to-indigo-800 p-10 rounded-2xl shadow-2xl text-white text-center">
           <Trophy className="h-12 w-12 mx-auto mb-4 text-yellow-300" />
@@ -252,4 +219,3 @@ const IplAuction = () => {
 };
 
 export default IplAuction;
-
