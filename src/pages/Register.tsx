@@ -66,7 +66,7 @@ const Register: React.FC = () => {
   const [formErrors, setFormErrors] = useState<MemberErrors[]>([]);
   const [supabase, setSupabase] = useState<any>(null); // State to hold the client
   const [registrationComplete, setRegistrationComplete] = useState(false);
-  const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: ''});
+  const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '', ticketId: ''});
   const [postPaymentError, setPostPaymentError] = useState('');
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
@@ -224,6 +224,16 @@ const Register: React.FC = () => {
             return false;
     }
   };
+  
+  const generateTicketId = (): string => {
+    const prefix = "INX25-HYD-";
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return prefix + result;
+  };
 
   const nextStep = () => {
     if (currentStep < 4 && validateCurrentStep()) {
@@ -270,6 +280,9 @@ const Register: React.FC = () => {
             console.log('Payment Successful:', response);
             
             try {
+                // Generate a unique ticket ID for the registration
+                const ticketId = generateTicketId();
+
                 const registrationData = {
                     team_name: formData.teamName,
                     team_size: formData.teamSize,
@@ -279,7 +292,8 @@ const Register: React.FC = () => {
                     superpower: formData.superpower,
                     members: formData.members.slice(0, formData.teamSize),
                     payment_id: response.razorpay_payment_id,
-                    total_amount: paymentDetails.total
+                    total_amount: paymentDetails.total,
+                    ticket_id: ticketId // Add the generated ticket ID
                 };
                 
                 if (!supabase) {
@@ -297,9 +311,24 @@ const Register: React.FC = () => {
                 }
 
                 console.log('Successfully saved to Supabase:', data);
+
+                // --- AUTOMATIC EMAIL TRIGGER ---
+                try {
+                  console.log('Attempting to invoke email sending function...');
+                  const { error: functionError } = await supabase.functions.invoke('send-confirmation-email', {
+                      body: registrationData,
+                  });
+                  if (functionError) throw functionError;
+                  console.log('Confirmation email function invoked successfully.');
+                } catch (emailError) {
+                  console.error('Could not send confirmation email:', emailError);
+                }
+                // -----------------------------
+
                 setFinalPaymentInfo({
                     teamName: formData.teamName,
-                    paymentId: response.razorpay_payment_id
+                    paymentId: response.razorpay_payment_id,
+                    ticketId: ticketId // Pass the ticket ID to the success screen
                 });
                 setRegistrationComplete(true);
 
@@ -342,22 +371,29 @@ const Register: React.FC = () => {
   
   if (registrationComplete) {
       return (
-          <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
+          <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center p-4">
               <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto"
+                  className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto w-full"
               >
                   <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
                   <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
-                  <p className="text-gray-700 mb-4">
-                      Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.
+                  <p className="text-gray-700 mb-6">
+                      Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered.
                   </p>
-                  <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
-                      <p>Your Payment ID is:</p>
-                      <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
+                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-left border">
+                      <div>
+                          <p className="text-gray-600 font-semibold">Your Ticket ID:</p>
+                          <p className="font-mono font-bold text-lg mt-1 text-indigo-600 tracking-wider bg-indigo-50 p-2 rounded-md">{finalPaymentInfo.ticketId}</p>
+                      </div>
+                      <hr className="my-3" />
+                      <div>
+                          <p className="text-gray-600 font-semibold">Your Payment ID:</p>
+                          <p className="font-mono text-gray-800 mt-1 break-all">{finalPaymentInfo.paymentId}</p>
+                      </div>
                   </div>
-                  <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
+                  <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation with your ticket to the team leader's email. Get ready to innovate!</p>
               </motion.div>
           </div>
       )
