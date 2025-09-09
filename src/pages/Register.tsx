@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// To run this locally, you'd need a routing library like react-router-dom
-// For this example, we'll create a dummy navigate function.
-// import { useNavigate } from 'react-router-dom';
+// No longer importing from a local file to resolve the issue.
+// import { supabase } from './supabaseClient'; 
 import { 
   Users, 
   Trophy, 
@@ -51,7 +50,7 @@ interface FormData {
 // For TypeScript to recognize the Razorpay and Supabase objects on the window
 interface CustomWindow extends Window {
     Razorpay: any;
-    supabase: any;
+    supabase: any; // Add supabase to the window interface
 }
 
 declare const window: CustomWindow;
@@ -61,7 +60,7 @@ const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [supabase, setSupabase] = useState<any>(null);
+  const [supabase, setSupabase] = useState<any>(null); // State to hold the client
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -94,19 +93,19 @@ const Register: React.FC = () => {
 
     supabaseScript.onload = () => {
       // Supabase is now available on the window object
-      const supabaseUrl = 'YOUR_SUPABASE_URL'; // IMPORTANT: Replace
-      const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; // IMPORTANT: Replace
+      const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; // IMPORTANT: Replace
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE'; // IMPORTANT: Replace
       
-      // Check if credentials are still placeholders
-      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
+      // Check if credentials are provided and the script is loaded
+      if (supabaseUrl && supabaseUrl !== 'https://ytjnonkfkhcpkijhvlqi.supabase.co' && supabaseAnonKey && supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE' && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
+        console.log("Supabase client initialized successfully.");
       } else {
-        console.warn("Supabase credentials are placeholders or the script failed to load. Database operations will be disabled.");
+        console.warn("Supabase credentials are not provided or the script failed to load. Database operations will be disabled.");
       }
     };
     document.body.appendChild(supabaseScript);
-
 
     return () => {
         // Cleanup scripts on component unmount
@@ -229,16 +228,16 @@ const Register: React.FC = () => {
         acc[`member_${index + 1}_email`] = member.email;
         acc[`member_${index + 1}_phone`] = member.phoneNumber;
         return acc;
-      }, {} as Record<string, any>) // Added type assertion for accumulator
+      }, {} as Record<string, any>)
     };
 
     const options = {
-        key: "rzp_test_RFPjS89YJb6J7f	", // IMPORTANT: Replace with your actual Razorpay Key ID from your dashboard
+        key: "rzp_test_RFPjS89YJb6J7f", // Your actual Razorpay Key ID
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
         description: `Fee for Team '${formData.teamName}' with ${formData.teamSize} members.`,
-        image: "https://ibb.co/BKTcxNqM", // A placeholder logo
+        image: "https://i.ibb.co/L5T1x6m/reelhaus-logo.png", // Your direct image link
         
         handler: async function (response: any) {
             console.log('Payment Successful:', response);
@@ -257,7 +256,7 @@ const Register: React.FC = () => {
                 };
                 
                 if (!supabase) {
-                    console.error("Supabase client not initialized. Please check your URL and Key.");
+                    console.error("Supabase client is not initialized. Check your credentials in Register.jsx.");
                     throw new Error("Database connection is not configured.");
                 }
 
@@ -292,7 +291,7 @@ const Register: React.FC = () => {
             email: formData.members[0].email,
             contact: formData.members[0].phoneNumber,
         },
-        notes: notesData, // Using the new, more detailed notes object
+        notes: notesData,
         theme: {
             color: "#FBBF24",
             backdrop_color: "rgba(0, 0, 0, 0.6)"
