@@ -163,27 +163,42 @@ const Register: React.FC = () => {
   };
 
   const handlePayment = async () => {
+    if (!isStepValid()) {
+        alert("Please ensure you've filled out all required fields and agreed to the rules.");
+        return;
+    }
     setIsLoading(true);
 
     const paymentDetails = calculateTotal();
     const amountInPaise = Math.round(paymentDetails.total * 100);
 
     const options = {
-        key: "rzp_test_RFPjS89YJb6J7f", // IMPORTANT: Replace with your Razorpay Test Key ID
+        key: "rzp_test_RFPjS89YJb6J7f", // Your Razorpay Test Key ID
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
         description: `Team Registration for ${formData.teamName}`,
-        // image: "/your_logo.png", // Optional: Add your logo URL here
+        image: "https://i.imgur.com/your-logo.png", // **IMPORTANT**: Replace with your actual logo URL
+        
+        // **BEST PRACTICE**: In a real app, you should create an order on your server
+        // and pass the `order_id` here. This is more secure.
+        // order_id: "order_xyz_from_your_server",
+
         handler: function (response: any) {
             console.log('Payment Successful:', response);
             alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`);
             
-            // You would typically verify the payment signature on your server here
-            // and then save the registration details to your database.
+            // **CRITICAL**: You must verify the payment signature on your server
+            // to confirm the payment is authentic. Do not trust the client-side response alone.
+            // 1. Send `response.razorpay_payment_id`, `response.razorpay_order_id`, 
+            //    and `response.razorpay_signature` to your server.
+            // 2. Your server verifies the signature using your Razorpay secret.
+            // 3. If verification is successful, save the registration details to your database.
+            
             console.log('Final Form Data Submitted:', formData);
             setIsLoading(false);
             // Optionally, you can redirect to a success page.
+            // window.location.href = '/thank-you';
         },
         prefill: {
             name: formData.members[0].fullName,
@@ -193,9 +208,12 @@ const Register: React.FC = () => {
         notes: {
             team_name: formData.teamName,
             team_size: formData.teamSize,
+            team_grade: formData.members[0].grade, // Adding team grade
+            team_leader_email: formData.members[0].email, // Adding leader's email for records
         },
         theme: {
-            color: "#FBBF24",
+            color: "#FBBF24", // Yellow theme color
+            backdrop_color: "rgba(0, 0, 0, 0.6)"
         },
         modal: {
             ondismiss: function () {
@@ -526,9 +544,6 @@ const Register: React.FC = () => {
                               <span>₹{paymentDetails.total.toFixed(2)}</span>
                           </div>
                       </div>
-                      <p className="text-sm text-gray-500 mt-4">
-                        Payment instructions will be sent to the Team Leader's email after you submit this form.
-                      </p>
                     </div>
 
                     <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -608,5 +623,3 @@ const Register: React.FC = () => {
 };
 
 export default Register;
-
-
