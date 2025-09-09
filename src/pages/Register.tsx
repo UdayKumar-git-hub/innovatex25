@@ -37,6 +37,20 @@ interface FormData {
   agreedToRules: boolean;
 }
 
+// --- Validation ---
+// Utility to check for a valid email format
+const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+interface MemberErrors {
+    fullName?: string;
+    grade?: string;
+    email?: string;
+    phoneNumber?: string;
+}
+
 // For TypeScript to recognize the Razorpay and Supabase objects on the window
 interface CustomWindow extends Window {
     Razorpay: any;
@@ -49,7 +63,7 @@ declare const window: CustomWindow;
 const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [validationError, setValidationError] = useState('');
+  const [formErrors, setFormErrors] = useState<MemberErrors[]>([]);
   const [supabase, setSupabase] = useState<any>(null); // State to hold the client
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: ''});
@@ -84,12 +98,12 @@ const Register: React.FC = () => {
 
     supabaseScript.onload = () => {
       // --- IMPORTANT ---
-      // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS FOR THIS TO WORK
+      // These are your actual Supabase credentials as provided
       const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; 
       const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
       // -----------------
       
-      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
+      if (supabaseUrl && supabaseAnonKey && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
         console.log("Supabase client initialized successfully.");
@@ -108,6 +122,11 @@ const Register: React.FC = () => {
         }
     }
   }, []);
+  
+  // Initialize formErrors based on team size
+  useEffect(() => {
+    setFormErrors(Array(formData.teamSize).fill({}));
+  }, [formData.teamSize]);
 
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
@@ -140,6 +159,17 @@ const Register: React.FC = () => {
     }
 
     setFormData(prev => ({ ...prev, members: newMembers }));
+
+    // Real-time validation for email
+    if (field === 'email') {
+        const newErrors = [...formErrors];
+        if (value.trim() && !isValidEmail(value)) {
+            newErrors[index] = { ...newErrors[index], email: 'Please enter a valid email address.' };
+        } else {
+            newErrors[index] = { ...newErrors[index], email: undefined };
+        }
+        setFormErrors(newErrors);
+    }
   };
 
   const handleInterestToggle = (interest: string) => {
@@ -162,20 +192,32 @@ const Register: React.FC = () => {
     return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
   };
 
-  const isStepValid = () => {
+  const validateCurrentStep = () => {
     switch (currentStep) {
         case 1:
             return formData.teamName.trim() !== '';
         case 2:
             return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
-        case 3:
+        case 3: {
+            let isValid = true;
+            const newErrors: MemberErrors[] = Array(formData.teamSize).fill({});
             for (let i = 0; i < formData.teamSize; i++) {
                 const member = formData.members[i];
-                if (!member.fullName.trim() || !member.grade || !member.email.trim() || !member.phoneNumber.trim()) {
-                    return false;
+                if (!member.fullName.trim()) isValid = false;
+                if (!member.grade) isValid = false;
+                if (!member.phoneNumber.trim()) isValid = false;
+                
+                if (!member.email.trim()) {
+                    isValid = false;
+                } else if (!isValidEmail(member.email)) {
+                    isValid = false;
+                    newErrors[i] = { ...newErrors[i], email: 'Please enter a valid email address.' };
                 }
             }
-            return true;
+            setFormErrors(newErrors);
+            // Also check if there are any existing errors from real-time validation
+            return isValid && formErrors.every(err => !err.email);
+        }
         case 4:
             return formData.agreedToRules;
         default:
@@ -184,7 +226,9 @@ const Register: React.FC = () => {
   };
 
   const nextStep = () => {
-    if (currentStep < 4 && isStepValid()) setCurrentStep(currentStep + 1);
+    if (currentStep < 4 && validateCurrentStep()) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
   const prevStep = () => {
@@ -192,11 +236,10 @@ const Register: React.FC = () => {
   };
 
   const handlePayment = async () => {
-    if (!isStepValid()) {
-        setValidationError("Please ensure you've agreed to the rules before proceeding.");
+    if (!validateCurrentStep()) {
+        setPostPaymentError("Please ensure you've agreed to the rules before proceeding.");
         return;
     }
-    setValidationError('');
     setPostPaymentError('');
     setIsLoading(true);
 
@@ -288,7 +331,7 @@ const Register: React.FC = () => {
     };
 
     if (!window.Razorpay) {
-        setValidationError("Payment gateway failed to load. Please check your internet and try again.");
+        setPostPaymentError("Payment gateway failed to load. Please check your internet and try again.");
         setIsLoading(false);
         return;
     }
@@ -555,9 +598,10 @@ const Register: React.FC = () => {
                             type="email"
                             value={formData.members[index].email}
                             onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            className={`w-full p-3 border rounded-lg focus:ring-2 focus:border-transparent ${formErrors[index]?.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-yellow-500'}`}
                             placeholder="Enter email address"
                           />
+                          {formErrors[index]?.email && <p className="text-red-600 text-xs mt-1">{formErrors[index].email}</p>}
                         </div>
 
                         <div>
@@ -594,7 +638,7 @@ const Register: React.FC = () => {
                            <div className='flex'>
                              <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
                              <div>
-                               <p className="font-bold">Registration Error</p>
+                               <p className="font-bold">Error</p>
                                <p>{postPaymentError}</p>
                              </div>
                            </div>
@@ -653,11 +697,6 @@ const Register: React.FC = () => {
                         By checking this box, our team agrees to the rules and is ready to bring our A-game!
                       </label>
                     </div>
-                    {validationError && (
-                        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
-                            {validationError}
-                        </div>
-                    )}
                   </div>
                 </div>
               )
@@ -678,7 +717,7 @@ const Register: React.FC = () => {
           {currentStep < 4 ? (
             <button
               onClick={nextStep}
-              disabled={!isStepValid()}
+              disabled={!validateCurrentStep()}
               className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
