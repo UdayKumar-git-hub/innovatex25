@@ -233,7 +233,7 @@ const Register: React.FC = () => {
     };
 
     const options = {
-        key: "YOUR_RAZORPAY_KEY_ID", // IMPORTANT: Replace with your actual Razorpay Key ID from your dashboard
+        key: "rzp_test_RFPjS89YJb6J7f	", // IMPORTANT: Replace with your actual Razorpay Key ID from your dashboard
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
