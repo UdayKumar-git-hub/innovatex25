@@ -14,7 +14,7 @@ import {
   Star,
   Mail,
   Phone,
-  User,
+  User, 
   CreditCard,
   Sparkles
 } from 'lucide-react';
