@@ -95,8 +95,22 @@ const Register: React.FC = () => {
   };
 
   const calculateTotal = () => {
-    const basePrice = 449; // Early bird price
-    return basePrice * formData.teamSize;
+    const basePrice = 449;
+    const teamDiscount = 50;
+    const platformFeeRate = 0.05;
+
+    const subtotal = basePrice * formData.teamSize;
+    const priceAfterDiscount = subtotal - teamDiscount;
+    const platformFee = priceAfterDiscount * platformFeeRate;
+    const total = priceAfterDiscount + platformFee;
+
+    return {
+        subtotal,
+        teamDiscount,
+        priceAfterDiscount,
+        platformFee,
+        total
+    };
   };
 
   const isStepValid = () => {
@@ -149,7 +163,7 @@ const Register: React.FC = () => {
         >
           <div className="flex items-center justify-center mb-4">
             <Sparkles className="h-8 w-8 text-yellow-500 mr-3" />
-            <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-500">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800">
               InnovateX25 Registration
             </h1>
           </div>
@@ -400,55 +414,76 @@ const Register: React.FC = () => {
               </div>
             )}
 
-            {currentStep === 4 && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <CreditCard className="w-6 h-6 mr-3 text-yellow-500" />
-                  Registration Fee & Payment
-                </h2>
+            {currentStep === 4 && (() => {
+              const paymentDetails = calculateTotal();
+              return (
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <CreditCard className="w-6 h-6 mr-3 text-yellow-500" />
+                    Registration Fee & Payment
+                  </h2>
 
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
-                    <div className="flex items-center mb-4">
-                      <Sparkles className="w-6 h-6 text-yellow-600 mr-2" />
-                      <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
+                      <div className="flex items-center mb-4">
+                        <Sparkles className="w-6 h-6 text-yellow-600 mr-2" />
+                        <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
+                      </div>
+                      <p className="text-yellow-700 mb-2">
+                        Register before [Insert Deadline Date] and get a <strong>₹50 discount per team!</strong>
+                      </p>
+                      <p className="text-yellow-800 font-semibold">
+                        Early Bird Price: ₹449 per person (Regular: ₹499)
+                      </p>
                     </div>
-                    <p className="text-yellow-700 mb-2">
-                      Register before [Insert Deadline Date] and get a ₹50 discount per person!
-                    </p>
-                    <p className="text-yellow-800 font-semibold">
-                      Early Bird Price: ₹449 per person (Regular: ₹499)
-                    </p>
-                  </div>
 
-                  <div className="bg-white p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Total Amount Due:</h3>
-                    <div className="text-3xl font-bold text-green-600 mb-2">
-                      ₹{calculateTotal().toLocaleString()}
+                    <div className="bg-white p-6 rounded-lg border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
+                       <div className="space-y-3 text-gray-700">
+                          <div className="flex justify-between">
+                              <span>Team of {formData.teamSize} × ₹449</span>
+                              <span>₹{paymentDetails.subtotal.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-green-600">
+                              <span>Early Bird Discount</span>
+                              <span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span>
+                          </div>
+                          <hr className="my-2"/>
+                          <div className="flex justify-between font-semibold">
+                              <span>Subtotal</span>
+                              <span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                              <span>Platform Fee (5%)</span>
+                              <span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span>
+                          </div>
+                          <hr className="my-2 border-t-2 border-gray-300"/>
+                          <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2">
+                              <span>Total Amount Due</span>
+                              <span>₹{paymentDetails.total.toFixed(2)}</span>
+                          </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-4">
+                        Payment instructions will be sent to the Team Leader's email after you submit this form.
+                      </p>
                     </div>
-                    <p className="text-gray-600">
-                      Team of {formData.teamSize} × ₹449 per person
-                    </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Payment instructions will be sent to the Team Leader's email after you submit this form.
-                    </p>
-                  </div>
 
-                  <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <input
-                      type="checkbox"
-                      id="agreeRules"
-                      checked={formData.agreedToRules}
-                      onChange={(e) => handleInputChange('agreedToRules', e.target.checked)}
-                      className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="agreeRules" className="text-gray-700">
-                      By checking this box, our team agrees to the rules and is ready to bring our A-game!
-                    </label>
+                    <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <input
+                        type="checkbox"
+                        id="agreeRules"
+                        checked={formData.agreedToRules}
+                        onChange={(e) => handleInputChange('agreedToRules', e.target.checked)}
+                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="agreeRules" className="text-gray-700">
+                        By checking this box, our team agrees to the rules and is ready to bring our A-game!
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </motion.div>
         </AnimatePresence>
 
@@ -504,3 +539,4 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
