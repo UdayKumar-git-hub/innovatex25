@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { DollarSign, Users2, Gift, Award, LucideIcon } from 'lucide-react';
+import { DollarSign, Users2, Gift, Award, DivideIcon as LucideIcon } from 'lucide-react';
 
 // --- Data Structure ---
 const perks = [
@@ -61,7 +61,7 @@ const titleVariants = {
         ease: [0.16, 1, 0.3, 1]
       }
     }
-}
+};
 
 
 const Perks: React.FC = () => {
@@ -124,7 +124,7 @@ const Perks: React.FC = () => {
             </h3>
             <p className="text-gray-600 mb-8 max-w-xl mx-auto">
               Join hundreds of students in this transformative experience. Register now and be part of InnovateX25!
-              <a href="/register">Register Today!</a>
+            </p>
             <MagneticButton text="Register Today!" />
           </div>
         </motion.div>
@@ -183,7 +183,7 @@ const PerkCard: React.FC<PerkCardProps> = ({ perk }) => {
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{
-            transformStyle: "preserve-d",
+            transformStyle: "preserve-3d",
             rotateX,
             rotateY
         }}
