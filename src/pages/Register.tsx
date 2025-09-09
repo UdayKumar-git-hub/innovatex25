@@ -40,7 +40,7 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
-    challenges: [],
+    challenges: ['ipl', 'brand', 'innovators', 'echoes'], // All challenges are mandatory now
     interests: [],
     otherInterest: '',
     superpower: '',
@@ -76,14 +76,15 @@ const Register: React.FC = () => {
   const handleMemberChange = (index: number, field: string, value: string) => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
-    setFormData(prev => ({ ...prev, members: newMembers }));
-  };
 
-  const handleChallengeToggle = (challengeId: string) => {
-    const newChallenges = formData.challenges.includes(challengeId)
-      ? formData.challenges.filter(id => id !== challengeId)
-      : [...formData.challenges, challengeId];
-    handleInputChange('challenges', newChallenges);
+    // If the team leader's grade is changed, update all other members' grades.
+    if (index === 0 && field === 'grade') {
+        for (let i = 1; i < formData.teamSize; i++) {
+            newMembers[i] = { ...newMembers[i], grade: value };
+        }
+    }
+
+    setFormData(prev => ({ ...prev, members: newMembers }));
   };
 
   const handleInterestToggle = (interest: string) => {
@@ -98,8 +99,29 @@ const Register: React.FC = () => {
     return basePrice * formData.teamSize;
   };
 
+  const isStepValid = () => {
+    switch (currentStep) {
+        case 1:
+            return formData.teamName.trim() !== '';
+        case 2:
+            return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
+        case 3:
+            for (let i = 0; i < formData.teamSize; i++) {
+                const member = formData.members[i];
+                if (!member.fullName.trim() || !member.grade || !member.email.trim() || !member.phoneNumber.trim()) {
+                    return false;
+                }
+            }
+            return true;
+        case 4:
+            return formData.agreedToRules;
+        default:
+            return false;
+    }
+  };
+
   const nextStep = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
+    if (currentStep < 4 && isStepValid()) setCurrentStep(currentStep + 1);
   };
 
   const prevStep = () => {
@@ -107,13 +129,17 @@ const Register: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!isStepValid()) {
+        alert("Please make sure you've agreed to the rules!");
+        return;
+    }
     // Here you would typically submit to your backend/Supabase
     console.log('Form submitted:', formData);
     alert('Registration submitted successfully! Payment instructions will be sent to your email.');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32">
+    <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
       <div className="max-w-4xl mx-auto px-6">
         {/* Header */}
         <motion.div 
@@ -123,7 +149,7 @@ const Register: React.FC = () => {
         >
           <div className="flex items-center justify-center mb-4">
             <Sparkles className="h-8 w-8 text-yellow-500 mr-3" />
-            <h1 className="text-4xl md:text-5xl font-extrabold gradient-title premium-font">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800">
               InnovateX25 Registration
             </h1>
           </div>
@@ -140,23 +166,25 @@ const Register: React.FC = () => {
 
         {/* Progress Bar */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                  step <= currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {step < currentStep ? <Check className="w-5 h-5" /> : step}
+          <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
+            {[1, 2, 3, 4].map((step, index) => (
+              <React.Fragment key={step}>
+                <div className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                    step <= currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step < currentStep ? <Check className="w-5 h-5" /> : step}
+                  </div>
                 </div>
-                {step < 4 && (
-                  <div className={`w-16 h-1 mx-2 ${
+                {index < 3 && (
+                  <div className={`flex-1 h-1 mx-2 transition-all duration-300 ${
                     step < currentStep ? 'bg-yellow-500' : 'bg-gray-200'
                   }`} />
                 )}
-              </div>
+              </React.Fragment>
             ))}
           </div>
-          <div className="text-center text-sm text-gray-600">
+          <div className="text-center text-sm text-gray-600 font-semibold">
             Step {currentStep} of 4
           </div>
         </div>
@@ -198,14 +226,14 @@ const Register: React.FC = () => {
                     </label>
                     <div className="grid grid-cols-3 gap-4">
                       {[2, 3, 4].map((size) => (
-                        <label key={size} className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors">
+                        <label key={size} className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.teamSize === size ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-400' : 'border-gray-300'}`}>
                           <input
                             type="radio"
                             name="teamSize"
                             value={size}
                             checked={formData.teamSize === size}
                             onChange={(e) => handleInputChange('teamSize', parseInt(e.target.value))}
-                            className="mr-3"
+                            className="sr-only"
                           />
                           <span className="font-medium">Team of {size}</span>
                         </label>
@@ -226,27 +254,19 @@ const Register: React.FC = () => {
                 <div className="space-y-8">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
-                      Which challenge are you most excited to crush? (Check all that apply)
+                      All teams will compete in all challenges. Get ready for an epic showdown!
                     </label>
                     <div className="grid md:grid-cols-2 gap-4">
                       {challenges.map((challenge) => {
                         const IconComponent = challenge.icon;
                         return (
-                          <label key={challenge.id} className="flex items-start p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={formData.challenges.includes(challenge.id)}
-                              onChange={() => handleChallengeToggle(challenge.id)}
-                              className="mt-1 mr-3"
-                            />
-                            <div className="flex items-start">
-                              <IconComponent className="w-5 h-5 text-yellow-500 mr-3 mt-0.5" />
-                              <div>
-                                <div className="font-medium text-gray-800">{challenge.name}</div>
-                                <div className="text-sm text-gray-600">{challenge.description}</div>
-                              </div>
+                          <div key={challenge.id} className="flex items-start p-4 bg-gray-50/50 border border-gray-200 rounded-lg">
+                            <IconComponent className="w-5 h-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <div className="font-medium text-gray-800">{challenge.name}</div>
+                              <div className="text-sm text-gray-600">{challenge.description}</div>
                             </div>
-                          </label>
+                          </div>
                         );
                       })}
                     </div>
@@ -258,33 +278,29 @@ const Register: React.FC = () => {
                     </label>
                     <div className="grid md:grid-cols-2 gap-3">
                       {interests.map((interest) => (
-                        <label key={interest} className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors">
-                          <input
+                        <label key={interest} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.interests.includes(interest) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}>
+                           <input
                             type="checkbox"
                             checked={formData.interests.includes(interest)}
                             onChange={() => handleInterestToggle(interest)}
-                            className="mr-3"
+                            className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
                           />
-                          <span className="text-gray-700">{interest}</span>
+                          <span className="ml-3 text-gray-700">{interest}</span>
                         </label>
                       ))}
-                      <div className="flex items-center p-3 border border-gray-300 rounded-lg">
+                      <div className="flex items-center p-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-yellow-500">
                         <input
                           type="checkbox"
                           checked={formData.otherInterest !== ''}
-                          onChange={(e) => {
-                            if (!e.target.checked) {
-                              handleInputChange('otherInterest', '');
-                            }
-                          }}
-                          className="mr-3"
+                          readOnly
+                          className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
                         />
                         <input
                           type="text"
                           value={formData.otherInterest}
                           onChange={(e) => handleInputChange('otherInterest', e.target.value)}
-                          placeholder="Other:"
-                          className="flex-1 bg-transparent border-none outline-none"
+                          placeholder="Other..."
+                          className="ml-3 flex-1 bg-transparent border-none outline-none placeholder-gray-500"
                         />
                       </div>
                     </div>
@@ -299,7 +315,7 @@ const Register: React.FC = () => {
                       onChange={(e) => handleInputChange('superpower', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                       rows={3}
-                      placeholder="e.g., Super creative, amazing planners, master strategists, hilarious presenters..."
+                      placeholder="e.g., Super creative, amazing planners, master strategists..."
                     />
                   </div>
                 </div>
@@ -312,6 +328,7 @@ const Register: React.FC = () => {
                   <User className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Roster
                 </h2>
+                 <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
 
                 <div className="space-y-8">
                   {Array.from({ length: formData.teamSize }, (_, index) => (
@@ -341,7 +358,8 @@ const Register: React.FC = () => {
                           <select
                             value={formData.members[index].grade}
                             onChange={(e) => handleMemberChange(index, 'grade', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-200/70 disabled:cursor-not-allowed"
+                            disabled={index > 0}
                           >
                             <option value="">Select Grade</option>
                             <option value="7th">7th</option>
@@ -422,7 +440,7 @@ const Register: React.FC = () => {
                       id="agreeRules"
                       checked={formData.agreedToRules}
                       onChange={(e) => handleInputChange('agreedToRules', e.target.checked)}
-                      className="mt-1 mr-3"
+                      className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label htmlFor="agreeRules" className="text-gray-700">
                       By checking this box, our team agrees to the rules and is ready to bring our A-game!
@@ -448,7 +466,8 @@ const Register: React.FC = () => {
           {currentStep < 4 ? (
             <button
               onClick={nextStep}
-              className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors"
+              disabled={!isStepValid()}
+              className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
               <ChevronRight className="w-5 h-5 ml-2" />
