@@ -177,7 +177,7 @@ const Register: React.FC = () => {
     const amountInPaise = Math.round(paymentDetails.total * 100);
 
     const options = {
-        key: "rzp_test_RFPjS89YJb6J7f", // IMPORTANT: Replace with your actual Razorpay KEY ID
+        key: "pl_RFR6ryFpGKZkJV", // IMPORTANT: Replace with your actual Razorpay KEY ID
         amount: amountInPaise,
         currency: "INR",
         name: "InnovateX25 Registration",
