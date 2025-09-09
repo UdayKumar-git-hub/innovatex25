@@ -74,7 +74,6 @@ const Rules: React.FC = () => {
     "Respect diversity and promote inclusive participation",
     "No discrimination based on gender, religion, or background",
     "Report any inappropriate behavior to organizers immediately",
-    "Follow all COVID-19 safety protocols if applicable",
     "Keep the venue clean and organized",
     "No consumption of alcohol or prohibited substances",
     "Dress code: Smart casual or formal attire"
