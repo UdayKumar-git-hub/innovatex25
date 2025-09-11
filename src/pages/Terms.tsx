@@ -86,7 +86,7 @@ const Terms: React.FC = () => {
         "Refund policies will be clearly communicated in case of event cancellation",
         "Participants will be notified of any significant changes via registered contact information"
       ]
-    }
+    },
     {
       title: "Refund Policy",
       icon: Scale,
