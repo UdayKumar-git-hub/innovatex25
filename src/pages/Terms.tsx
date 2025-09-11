@@ -87,6 +87,18 @@ const Terms: React.FC = () => {
         "Participants will be notified of any significant changes via registered contact information"
       ]
     }
+    {
+      title: "Refund Policy",
+      icon: Scale,
+      content: [
+        "All registration fees are non-refundable once payment has been processed",
+        "No refunds will be provided for any reason including but not limited to participant withdrawal, illness, or inability to attend",
+        "Registration fees are not transferable to other participants or future events",
+        "In the event of complete event cancellation by organizers due to unforeseen circumstances, participants will be notified of alternative arrangements",
+        "Partial refunds will not be provided for missed sessions or incomplete participation",
+        "By completing registration and payment, participants acknowledge and accept this no-refund policy"
+      ]
+    }
   ];
 
   return (
