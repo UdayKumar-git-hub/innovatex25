@@ -1,595 +1,826 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
-    ChevronLeft, Check, Star, Mail, Phone, User, CreditCard,
-    Sparkles, PartyPopper, AlertTriangle, Instagram
+  Users,
+  Trophy,
+  Megaphone,
+  Lightbulb,
+  MessageSquare,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Star,
+  Mail,
+  Phone,
+  User,
+  CreditCard,
+  Sparkles,
+  PartyPopper,
+  AlertTriangle,
+  Instagram
 } from 'lucide-react';
 
-// ==================================================================
-// CONFIGURATION
-// ==================================================================
-// This URL must point to your running backend server.
-const BACKEND_URL = 'http://localhost:3001';
-
-
-// ==================================================================
-// TYPE DEFINITIONS
-// ==================================================================
 interface TeamMember {
-    fullName: string;
-    grade: string;
-    email: string;
-    phoneNumber: string;
+  fullName: string;
+  grade: string;
+  email: string;
+  phoneNumber: string;
 }
 
 interface FormData {
-    teamName: string;
-    teamSize: number;
-    interests: string[];
-    otherInterest: string;
-    superpower: string;
-    members: TeamMember[];
-    agreedToRules: boolean;
+  teamName: string;
+  teamSize: number;
+  challenges: string[];
+  interests: string[];
+  otherInterest: string;
+  superpower: string;
+  members: TeamMember[];
+  agreedToRules: boolean;
 }
 
-// For recognizing third-party SDKs on the window object
+// For TypeScript to recognize the Cashfree and Supabase objects on the window
 interface CustomWindow extends Window {
-    Cashfree?: any;
-    supabase?: any;
+    cashfree: any; // Changed from Razorpay to cashfree
+    supabase: any;
 }
+
 declare const window: CustomWindow;
 
-
-// ==================================================================
-// CUSTOM HOOK: useExternalScript
-// Encapsulates logic for loading external SDKs like Cashfree or Supabase.
-// ==================================================================
-const useExternalScript = (src: string, sdkName: string) => {
-    const [isReady, setIsReady] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        // Check if the SDK object is already available on the window
-        if (window[sdkName as keyof Window]) {
-            console.log(`${sdkName} SDK already available.`);
-            setIsReady(true);
-            return;
-        }
-
-        // Find existing script tag to avoid duplicates
-        let script = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
-        
-        const handleLoad = () => {
-            console.log(`${sdkName} script loaded successfully.`);
-            // A small delay to ensure the SDK has initialized on the window object
-            setTimeout(() => {
-                if (window[sdkName as keyof Window]) {
-                    setIsReady(true);
-                } else {
-                    const errorMessage = `SDK ${sdkName} loaded but not found on window object.`;
-                    console.error(errorMessage);
-                    setError(errorMessage);
-                }
-            }, 100);
-        };
-
-        const handleError = () => {
-            const errorMessage = `Failed to load the ${sdkName} script. Check network or ad-blockers.`;
-            console.error(errorMessage);
-            setError(errorMessage);
-        };
-
-        if (!script) {
-            script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            document.body.appendChild(script);
-            script.addEventListener('load', handleLoad);
-            script.addEventListener('error', handleError);
-        } else {
-             // If script exists, it might be loading; attach listeners
-            script.addEventListener('load', handleLoad);
-            script.addEventListener('error', handleError);
-        }
-
-        return () => {
-            // Cleanup listeners
-            if (script) {
-                script.removeEventListener('load', handleLoad);
-                script.removeEventListener('error', handleError);
-            }
-        };
-    }, [src, sdkName]);
-
-    return { isReady, error };
-};
-
-
-// ==================================================================
-// UI & FORM COMPONENTS
-// ==================================================================
-
-const Step1_TeamIdentity = ({ formData, handleInputChange }: { formData: FormData, handleInputChange: (field: string, value: any) => void }) => (
-    <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><Users className="w-6 h-6 mr-3 text-yellow-500" />Your Team Identity</h2>
-        <div className="space-y-6">
-            <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Awesome Team Name:</label>
-                <input type="text" value={formData.teamName} onChange={(e) => handleInputChange('teamName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent" placeholder="Enter your team name" />
-            </div>
-            <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">Your Team Size:</label>
-                <div className="grid grid-cols-3 gap-4">
-                    {[2, 3, 4].map((size) => (
-                        <label key={size} className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.teamSize === size ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-400' : 'border-gray-300'}`}>
-                            <input type="radio" name="teamSize" value={size} checked={formData.teamSize === size} onChange={(e) => handleInputChange('teamSize', parseInt(e.target.value))} className="sr-only" />
-                            <span className="font-medium">Team of {size}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
-const Step2_TeamDetails = ({ formData, handleInputChange, handleInterestToggle }: { formData: FormData, handleInputChange: (field: string, value: any) => void, handleInterestToggle: (interest: string) => void }) => {
-    const challenges = [
-        { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
-        { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone },
-        { id: 'innovators', name: 'Young Innovators', description: 'Coming up with a game-changing new idea', icon: Lightbulb },
-        { id: 'echoes', name: 'ECHOES', description: 'Sharing your story and speaking your mind', icon: MessageSquare }
-    ];
-    const interests = ['Gaming & Esports', 'Technology & Coding', 'Art, Design & Video', 'Sports & Strategy', 'Public Speaking & Debating', 'Business & Marketing'];
-
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><Star className="w-6 h-6 mr-3 text-yellow-500" />Tell Us About Your Team!</h2>
-            <div className="space-y-8">
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-4">All teams will compete in all challenges. Get ready!</label>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {challenges.map((challenge) => (
-                            <div key={challenge.id} className="flex items-start p-4 bg-gray-50/50 border border-gray-200 rounded-lg">
-                                <challenge.icon className="w-5 h-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <div className="font-medium text-gray-800">{challenge.name}</div>
-                                    <div className="text-sm text-gray-600">{challenge.description}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-4">What are your team's interests? (Check all that apply)</label>
-                    <div className="grid md:grid-cols-2 gap-3">
-                        {interests.map((interest) => (
-                            <label key={interest} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.interests.includes(interest) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}>
-                                <input type="checkbox" checked={formData.interests.includes(interest)} onChange={() => handleInterestToggle(interest)} className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500" />
-                                <span className="ml-3 text-gray-700">{interest}</span>
-                            </label>
-                        ))}
-                        <div className="flex items-center p-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-yellow-500">
-                            <input type="checkbox" checked={formData.otherInterest !== ''} readOnly className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500" />
-                            <input type="text" value={formData.otherInterest} onChange={(e) => handleInputChange('otherInterest', e.target.value)} placeholder="Other..." className="ml-3 flex-1 bg-transparent border-none outline-none placeholder-gray-500" />
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">What's your team's secret superpower?</label>
-                    <textarea value={formData.superpower} onChange={(e) => handleInputChange('superpower', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent" rows={3} placeholder="e.g., Super creative, amazing planners, master strategists..." />
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const FormInput = ({ label, type = 'text', value, onChange, placeholder, disabled = false }: { label: string, type?: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, placeholder: string, disabled?: boolean }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{label}:</label>
-        <input type={type} value={value} onChange={onChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-100" placeholder={placeholder} disabled={disabled} />
-    </div>
-);
-
-const Step3_TeamRoster = ({ formData, handleMemberChange }: { formData: FormData, handleMemberChange: (index: number, field: string, value: string) => void }) => (
-    <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><User className="w-6 h-6 mr-3 text-yellow-500" />Your Team Roster</h2>
-        <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader and applied to all members.</p>
-        <div className="space-y-8">
-            {Array.from({ length: formData.teamSize }).map((_, index) => (
-                <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Member {index + 1} {index === 0 && '(Team Leader)'}</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <FormInput label="Full Name" value={formData.members[index].fullName} onChange={(e) => handleMemberChange(index, 'fullName', e.target.value)} placeholder="Enter full name" />
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Grade:</label>
-                            <select value={formData.members[index].grade} onChange={(e) => handleMemberChange(index, 'grade', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-200/70 disabled:cursor-not-allowed" disabled={index > 0}>
-                                <option value="">Select Grade</option>
-                                <option value="7th">7th</option>
-                                <option value="8th">8th</option>
-                                <option value="9th">9th</option>
-                            </select>
-                        </div>
-                        <FormInput label="Email Address" type="email" value={formData.members[index].email} onChange={(e) => handleMemberChange(index, 'email', e.target.value)} placeholder="Enter email address" />
-                        <FormInput label="Phone Number" type="tel" value={formData.members[index].phoneNumber} onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)} placeholder="Enter 10-digit number" />
-                    </div>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
-const Step4_Social = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, setHasFollowed: (value: boolean) => void }) => (
-    <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><Instagram className="w-6 h-6 mr-3 text-yellow-500" />Stay Updated!</h2>
-        <div className="text-center space-y-6">
-            <p className="text-gray-700">Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!</p>
-            <div>
-                <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
-                <div className="flex justify-center">
-                    {/* It's better to save the QR code image in your project's public folder and link to it directly */}
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" alt="QR code for reelhaus.hyd Instagram" className="rounded-lg shadow-md" />
-                </div>
-            </div>
-            <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
-                <input type="checkbox" id="follow" checked={hasFollowed} onChange={(e) => setHasFollowed(e.target.checked)} className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                <label htmlFor="follow" className="text-gray-700 text-left">Yes, our team is now following @reelhaus.hyd for important updates!</label>
-            </div>
-        </div>
-    </div>
-);
-
-const Step5_Payment = ({ formData, handleInputChange, postPaymentError, validationError, calculateTotal }: { formData: FormData, handleInputChange: (field: string, value: any) => void, postPaymentError: string, validationError: string, calculateTotal: () => any }) => {
-    const paymentDetails = calculateTotal();
-    const earlyBirdDate = "September 30th, 2025";
-
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CreditCard className="w-6 h-6 mr-3 text-yellow-500" />Registration Fee & Payment</h2>
-            <div className="space-y-6">
-                {postPaymentError && (
-                    <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
-                        <div className='flex'><AlertTriangle className='h-5 w-5 text-red-500 mr-3' />
-                            <div><p className="font-bold">Payment Error</p><p>{postPaymentError}</p></div>
-                        </div>
-                    </div>
-                )}
-                <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
-                    <div className="flex items-center mb-4"><Sparkles className="w-6 h-6 text-yellow-600 mr-2" /><h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3></div>
-                    <p className="text-yellow-700 mb-2">Register before <strong>{earlyBirdDate}</strong> and get a <strong>₹50 discount per team!</strong></p>
-                    <p className="text-yellow-800 font-semibold">Early Bird Price: ₹449 per person (Regular: ₹499)</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
-                    <div className="space-y-3 text-gray-700">
-                        <div className="flex justify-between"><span>Team of {formData.teamSize} × ₹449</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
-                        <div className="flex justify-between text-green-600"><span>Early Bird Discount</span><span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span></div>
-                        <hr className="my-2" />
-                        <div className="flex justify-between font-semibold"><span>Subtotal</span><span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Platform Fee (5%)</span><span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span></div>
-                        <hr className="my-2 border-t-2 border-gray-300" />
-                        <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2"><span>Total Amount Due</span><span>₹{paymentDetails.total.toFixed(2)}</span></div>
-                    </div>
-                </div>
-                <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <input type="checkbox" id="agreeRules" checked={formData.agreedToRules} onChange={(e) => handleInputChange('agreedToRules', e.target.checked)} className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                    <label htmlFor="agreeRules" className="text-gray-700">By checking this box, our team agrees to the rules and is ready to bring our A-game!</label>
-                </div>
-                {validationError && (<div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">{validationError}</div>)}
-            </div>
-        </div>
-    );
-};
-
-
-// ==================================================================
-// MAIN REGISTER COMPONENT
-// ==================================================================
 const Register: React.FC = () => {
-    const [currentStep, setCurrentStep] = useState(1);
-    const [isLoading, setIsLoading] = useState(false);
-    const [validationError, setValidationError] = useState('');
-    const [supabase, setSupabase] = useState<any>(null);
-    const [registrationComplete, setRegistrationComplete] = useState(false);
-    const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
-    const [postPaymentError, setPostPaymentError] = useState('');
-    const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const [supabase, setSupabase] = useState<any>(null);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
+  const [postPaymentError, setPostPaymentError] = useState('');
+  const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    teamName: '',
+    teamSize: 2,
+    challenges: ['ipl', 'brand', 'innovators', 'echoes'],
+    interests: [],
+    otherInterest: '',
+    superpower: '',
+    members: Array(4).fill(null).map(() => ({
+      fullName: '',
+      grade: '',
+      email: '',
+      phoneNumber: ''
+    })),
+    agreedToRules: false
+  });
 
-    const { isReady: isCashfreeReady, error: cashfreeError } = useExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 'Cashfree');
-    const { isReady: isSupabaseReady, error: supabaseError } = useExternalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', 'supabase');
+  useEffect(() => {
+    // Load Cashfree Script
+    const cashfreeScript = document.createElement('script');
+    cashfreeScript.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    cashfreeScript.async = true;
+    document.body.appendChild(cashfreeScript);
 
-    const [formData, setFormData] = useState<FormData>({
-        teamName: '',
-        teamSize: 2,
-        interests: [],
-        otherInterest: '',
-        superpower: '',
-        members: Array(4).fill(null).map(() => ({ fullName: '', grade: '', email: '', phoneNumber: '' })),
-        agreedToRules: false
-    });
+    // Load Supabase Script
+    const supabaseScript = document.createElement('script');
+    supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    supabaseScript.async = true;
 
-    useEffect(() => {
-        if (isSupabaseReady && window.supabase) {
-            const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
-            const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4ODMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
-            if (supabaseUrl && supabaseAnonKey) {
-                const { createClient } = window.supabase;
-                setSupabase(createClient(supabaseUrl, supabaseAnonKey));
-                console.log("Supabase client initialized successfully.");
-            }
-        }
-    }, [isSupabaseReady]);
+    supabaseScript.onload = () => {
+      const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
 
-    const handleInputChange = (field: string, value: any) => {
-        setValidationError('');
-        setFormData(prev => ({ ...prev, [field]: value }));
+      if (supabaseUrl && supabaseAnonKey && window.supabase) {
+        const { createClient } = window.supabase;
+        setSupabase(createClient(supabaseUrl, supabaseAnonKey));
+        console.log("Supabase client initialized successfully.");
+      } else {
+        console.warn("Supabase credentials are not provided or the script failed to load. Database operations will be disabled.");
+      }
     };
+    document.body.appendChild(supabaseScript);
 
-    const handleMemberChange = (index: number, field: string, value: string) => {
-        setValidationError('');
-        const newMembers = [...formData.members];
-        newMembers[index] = { ...newMembers[index], [field]: value };
-        if (index === 0 && field === 'grade') {
-            for (let i = 1; i < formData.teamSize; i++) {
-                newMembers[i] = { ...newMembers[i], grade: value };
-            }
-        }
-        setFormData(prev => ({ ...prev, members: newMembers }));
-    };
+    return () => {
+      if (document.body.contains(cashfreeScript)) {
+        document.body.removeChild(cashfreeScript);
+      }
+      if (document.body.contains(supabaseScript)) {
+        document.body.removeChild(supabaseScript);
+      }
+    }
+  }, []);
 
-    const handleInterestToggle = (interest: string) => {
-        setValidationError('');
-        const newInterests = formData.interests.includes(interest)
-            ? formData.interests.filter(i => i !== interest)
-            : [...formData.interests, interest];
-        handleInputChange('interests', newInterests);
-    };
+  const challenges = [
+    { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
+    { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone },
+    { id: 'innovators', name: 'Young Innovators', description: 'Coming up with a game-changing new idea', icon: Lightbulb },
+    { id: 'echoes', name: 'ECHOES', description: 'Sharing your story and speaking your mind', icon: MessageSquare }
+  ];
 
-    const calculateTotal = useCallback(() => {
-        const basePrice = 449;
-        const teamDiscount = 50;
-        const platformFeeRate = 0.05;
-        const subtotal = basePrice * formData.teamSize;
-        const priceAfterDiscount = subtotal - teamDiscount;
-        const platformFee = priceAfterDiscount * platformFeeRate;
-        const total = priceAfterDiscount + platformFee;
-        return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
-    }, [formData.teamSize]);
+  const interests = [
+    'Gaming & Esports',
+    'Technology & Coding',
+    'Art, Design & Video',
+    'Sports & Strategy',
+    'Public Speaking & Debating',
+    'Business & Marketing'
+  ];
 
-    const isStepValid = useCallback(() => {
-        switch (currentStep) {
-            case 1:
-                return formData.teamName.trim().length > 2;
-            case 2:
-                return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim().length > 10;
-            case 3:
-                for (let i = 0; i < formData.teamSize; i++) {
-                    const member = formData.members[i];
-                    if (!member.fullName.trim() || !member.grade || !member.email.trim().match(/^\S+@\S+\.\S+$/) || !member.phoneNumber.trim().match(/^\d{10}$/)) {
-                        return false;
-                    }
-                }
-                return true;
-            case 4:
-                return hasFollowedInstagram;
-            case 5:
-                return formData.agreedToRules;
-            default:
-                return false;
-        }
-    }, [currentStep, formData, hasFollowedInstagram]);
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-    const nextStep = () => {
-        if (!isStepValid()) {
-            setValidationError('Please complete all required fields correctly before continuing.');
-            return;
-        }
-        setValidationError('');
-        if (currentStep < 5) setCurrentStep(currentStep + 1);
-    };
-    const prevStep = () => {
-        setValidationError('');
-        if (currentStep > 1) setCurrentStep(currentStep - 1);
-    };
+  const handleMemberChange = (index: number, field: string, value: string) => {
+    const newMembers = [...formData.members];
+    newMembers[index] = { ...newMembers[index], [field]: value };
 
-    const handlePayment = async () => {
-        if (!isStepValid()) {
-            setValidationError("Please agree to the rules before proceeding.");
-            return;
-        }
-        setValidationError('');
-        setPostPaymentError('');
-        setIsLoading(true);
-
-        if (!isCashfreeReady) {
-            setValidationError(cashfreeError || "Payment gateway is not ready. Please refresh.");
-            setIsLoading(false);
-            return;
-        }
-
-        try {
-            const { total } = calculateTotal();
-            const orderId = `INNOVATEX-${Date.now()}`;
-            
-            const orderData = {
-                order_amount: total.toFixed(2),
-                order_id: orderId,
-                customer_details: {
-                    customer_id: `CUST-${Date.now()}`,
-                    customer_email: formData.members[0].email,
-                    customer_phone: formData.members[0].phoneNumber,
-                    customer_name: formData.members[0].fullName,
-                }
-            };
-
-            const response = await fetch(`${BACKEND_URL}/api/create-cashfree-order`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData),
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to communicate with the server.');
-            }
-
-            const { payment_session_id } = await response.json();
-            
-            if (!payment_session_id) {
-                throw new Error("Could not retrieve a payment session ID.");
-            }
-
-            const cashfree = new window.Cashfree();
-            cashfree.checkout({
-                paymentSessionId: payment_session_id,
-                onSuccess: async (data: any) => {
-                    if (data.order && data.order.status === 'PAID') {
-                        const paymentId = data.order.payment_id;
-                        try {
-                            if (!supabase) throw new Error("Supabase client is not ready.");
-
-                            const { error } = await supabase.from('registrations').insert([{
-                                team_name: formData.teamName,
-                                team_size: formData.teamSize,
-                                grade: formData.members[0].grade,
-                                interests: formData.interests,
-                                other_interest: formData.otherInterest,
-                                superpower: formData.superpower,
-                                members: formData.members.slice(0, formData.teamSize),
-                                payment_id: paymentId,
-                                total_amount: total
-                            }]);
-
-                            if (error) throw error;
-                            
-                            setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
-                            setRegistrationComplete(true);
-                        } catch (dbError: any) {
-                            console.error('CRITICAL: Supabase save failed after payment:', dbError);
-                            setPostPaymentError(`Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support.`);
-                        } finally {
-                            setIsLoading(false);
-                        }
-                    }
-                },
-                onFailure: (data: any) => {
-                    console.error('Cashfree Payment Failed:', data);
-                    setPostPaymentError(`Payment failed: ${data.order.error_text || 'Unknown error'}. Please try again.`);
-                    setIsLoading(false);
-                },
-            });
-
-        } catch (error: any) {
-            console.error("Payment Initiation Error:", error);
-            setValidationError(error.message);
-            setIsLoading(false);
-        }
-    };
-    
-    // --- Render Logic ---
-
-    if (registrationComplete) {
-        return (
-            <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto">
-                    <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                    <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
-                    <p className="text-gray-700 mb-4">Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.</p>
-                    <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
-                        <p>Your Payment ID is:</p>
-                        <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
-                    </div>
-                    <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
-                </motion.div>
-            </div>
-        )
+    if (index === 0 && field === 'grade') {
+      for (let i = 1; i < formData.teamSize; i++) {
+        newMembers[i] = { ...newMembers[i], grade: value };
+      }
     }
 
-    const renderStep = () => {
-        switch (currentStep) {
-            case 1: return <Step1_TeamIdentity formData={formData} handleInputChange={handleInputChange} />;
-            case 2: return <Step2_TeamDetails formData={formData} handleInputChange={handleInputChange} handleInterestToggle={handleInterestToggle} />;
-            case 3: return <Step3_TeamRoster formData={formData} handleMemberChange={handleMemberChange} />;
-            case 4: return <Step4_Social hasFollowed={hasFollowedInstagram} setHasFollowed={setHasFollowedInstagram} />;
-            case 5: return <Step5_Payment formData={formData} handleInputChange={handleInputChange} postPaymentError={postPaymentError} validationError={validationError} calculateTotal={calculateTotal} />;
-            default: return null;
+    setFormData(prev => ({ ...prev, members: newMembers }));
+  };
+
+  const handleInterestToggle = (interest: string) => {
+    const newInterests = formData.interests.includes(interest)
+      ? formData.interests.filter(i => i !== interest)
+      : [...formData.interests, interest];
+    handleInputChange('interests', newInterests);
+  };
+
+  const calculateTotal = () => {
+    const basePrice = 449;
+    const teamDiscount = 50;
+    const platformFeeRate = 0.05;
+
+    const subtotal = basePrice * formData.teamSize;
+    const priceAfterDiscount = subtotal - teamDiscount;
+    const platformFee = priceAfterDiscount * platformFeeRate;
+    const total = priceAfterDiscount + platformFee;
+
+    return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
+  };
+
+  const isStepValid = () => {
+    switch (currentStep) {
+      case 1:
+        return formData.teamName.trim() !== '';
+      case 2:
+        return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
+      case 3:
+        for (let i = 0; i < formData.teamSize; i++) {
+          const member = formData.members[i];
+          if (!member.fullName.trim() || !member.grade || !member.email.trim() || !member.phoneNumber.trim()) {
+            return false;
+          }
         }
-    };
+        return true;
+      case 4:
+        return hasFollowedInstagram;
+      case 5:
+        return formData.agreedToRules;
+      default:
+        return false;
+    }
+  };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
-            <div className="max-w-4xl mx-auto px-6">
-                <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-                    <div className="flex items-center justify-center mb-4">
-                        <Sparkles className="h-8 w-8 text-yellow-500 mr-3" />
-                        <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-600">InnovateX25 Registration</h1>
-                    </div>
-                    <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
-                    <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
-                    <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
-                        <p className="text-gray-700 leading-relaxed">
-                            Hey Innovators! Get ready for an epic experience where your ideas can shine.
-                            InnovateX25 is your chance to team up with friends, tackle fun challenges, and show everyone what you've got!
-                        </p>
-                    </div>
-                </motion.div>
+  const nextStep = () => {
+    if (currentStep < 5 && isStepValid()) setCurrentStep(currentStep + 1);
+  };
 
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
-                        {[1, 2, 3, 4, 5].map((step, index) => (
-                            <React.Fragment key={step}>
-                                <div className="flex items-center">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${step <= currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                        {step < currentStep ? <Check className="w-5 h-5" /> : step}
-                                    </div>
-                                </div>
-                                {index < 4 && (<div className={`flex-1 h-1 mx-2 transition-all duration-300 ${step < currentStep ? 'bg-yellow-500' : 'bg-gray-200'}`} />)}
-                            </React.Fragment>
-                        ))}
-                    </div>
-                    <div className="text-center text-sm text-gray-600 font-semibold">Step {currentStep} of 5</div>
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  // --- ⚠️ IMPORTANT: BACKEND FUNCTION REQUIRED ---
+  // You must create this function on a secure backend (e.g., Netlify/Vercel Serverless Function).
+  // This function will take the order details and securely call the Cashfree API to create a payment session.
+  // This prevents your secret key from being exposed in the frontend code.
+  const createCashfreeOrder = async (orderAmount: string, orderId: string) => {
+    // In a real app, this would be an API call to your own backend:
+    // const response = await fetch('/api/create-cashfree-order', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ orderAmount, orderId, customerDetails: ... }),
+    // });
+    // const data = await response.json();
+    // return data;
+
+    // --- PSEUDO-CODE FOR YOUR BACKEND FUNCTION (/api/create-cashfree-order.js) ---
+    /*
+    export default async function handler(req, res) {
+      const { orderAmount, orderId, customerDetails } = req.body;
+      
+      const options = {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'x-api-version': '2023-08-01',
+          'content-type': 'application/json',
+          'x-client-id': process.env.VITE_CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY, // <-- SECRET KEY ON SERVER ONLY
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          order_amount: parseFloat(orderAmount),
+          order_currency: 'INR',
+          customer_details: customerDetails,
+          order_meta: {
+            return_url: `https://YOUR_WEBSITE.com/payment-status?order_id={order_id}`,
+          },
+        }),
+      };
+
+      try {
+        const response = await fetch('https://api.cashfree.com/pg/orders', options);
+        const data = await response.json();
+        res.status(200).json(data);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+    */
+
+    // This is a placeholder for demonstration. Replace with your actual backend call.
+    console.warn("SIMULATION: Calling backend to create Cashfree order...");
+    // You would fetch from your own endpoint which securely calls Cashfree.
+    // For this example to work, you need to implement the backend logic above.
+    // I am returning a dummy object here.
+    return { payment_session_id: "dummy_session_id_replace_with_real_one" };
+  };
+
+
+  const handlePayment = async () => {
+    if (!isStepValid()) {
+      setValidationError("Please ensure you've agreed to the rules before proceeding.");
+      return;
+    }
+    setValidationError('');
+    setPostPaymentError('');
+    setIsLoading(true);
+
+    if (!window.cashfree) {
+      setValidationError("Payment gateway failed to load. Please refresh and try again.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const paymentDetails = calculateTotal();
+      const orderAmount = paymentDetails.total.toFixed(2);
+      const orderId = `INNOVATEX-${Date.now()}`; // Unique order ID
+      
+      const customerDetails = {
+        customer_id: `CUST-${Date.now()}`,
+        customer_email: formData.members[0].email,
+        customer_phone: formData.members[0].phoneNumber,
+        customer_name: formData.members[0].fullName,
+      };
+
+      // 1. Create a payment session from your backend
+      const sessionResponse = await createCashfreeOrder(orderAmount, orderId);
+      const { payment_session_id } = sessionResponse;
+
+      if (!payment_session_id) {
+          throw new Error("Failed to create payment session. Please check backend logs.");
+      }
+
+      // 2. Initialize the Cashfree SDK
+      const cashfree = new window.cashfree();
+
+      // 3. Define the checkout configuration
+      const dropinConfig = {
+        components: ["order-details", "card", "upi", "netbanking"],
+        onSuccess: async (data: any) => {
+          if (data.order && data.order.status === 'PAID') {
+            console.log('Cashfree Payment Successful:', data);
+            const paymentId = data.order.payment_id;
+
+            try {
+              const registrationData = {
+                team_name: formData.teamName,
+                team_size: formData.teamSize,
+                grade: formData.members[0].grade,
+                interests: formData.interests,
+                other_interest: formData.otherInterest,
+                superpower: formData.superpower,
+                members: formData.members.slice(0, formData.teamSize),
+                payment_id: paymentId,
+                total_amount: paymentDetails.total
+              };
+
+              if (!supabase) {
+                throw new Error("Supabase is not connected. Please check credentials.");
+              }
+
+              const { data: dbData, error } = await supabase
+                .from('registrations')
+                .insert([registrationData])
+                .select();
+
+              if (error) {
+                throw error;
+              }
+
+              console.log('Successfully saved to Supabase:', dbData);
+              setFinalPaymentInfo({
+                teamName: formData.teamName,
+                paymentId: paymentId
+              });
+              setRegistrationComplete(true);
+
+            } catch (error: any) {
+              console.error('CRITICAL: Error saving to Supabase after payment:', error);
+              setPostPaymentError(
+                `Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`
+              );
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        },
+        onFailure: (data: any) => {
+          console.error('Cashfree Payment Failed:', data);
+          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
+          setIsLoading(false);
+        },
+        style: {
+          theme: "light",
+          color: "#FBBF24"
+        }
+      };
+
+      // 4. Open the Cashfree checkout modal
+      cashfree.checkout({
+        paymentSessionId: payment_session_id,
+        ...dropinConfig
+      });
+      // The checkout method is now asynchronous and returns a promise for Drop-in.
+      // The callbacks `onSuccess` and `onFailure` handle the result.
+
+    } catch (error: any) {
+      console.error("Error during payment initiation:", error);
+      setValidationError(error.message || "Could not connect to the payment gateway.");
+      setIsLoading(false);
+    }
+  };
+  
+  if (registrationComplete) {
+      return (
+          <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
+              <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto"
+              >
+                  <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
+                  <p className="text-gray-700 mb-4">
+                      Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.
+                  </p>
+                  <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
+                      <p>Your Payment ID is:</p>
+                      <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
+                  </div>
+                  <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
+              </motion.div>
+          </div>
+      )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
+      <div className="max-w-4xl mx-auto px-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex items-center justify-center mb-4">
+            <Sparkles className="h-8 w-8 text-yellow-500 mr-3" />
+            <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-600">
+              InnovateX25 Registration
+            </h1>
+          </div>
+          <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
+          <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
+          
+          <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
+            <p className="text-gray-700 leading-relaxed">
+              Hey Innovators! Get ready for an epic experience where your ideas can shine. 
+              InnovateX25 is your chance to team up with friends, tackle fun challenges, and show everyone what you've got!
+            </p>
+          </div>
+        </motion.div>
+
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
+            {[1, 2, 3, 4, 5].map((step, index) => (
+              <React.Fragment key={step}>
+                <div className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                    step <= currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step < currentStep ? <Check className="w-5 h-5" /> : step}
+                  </div>
                 </div>
-
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={currentStep}
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -50 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
-                    >
-                        {renderStep()}
-                    </motion.div>
-                </AnimatePresence>
-
-                <div className="flex justify-between mt-8">
-                    <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 transition-colors"><ChevronLeft className="w-5 h-5 mr-2" />Previous</button>
-                    {currentStep < 5 ? (
-                        <button onClick={nextStep} disabled={!isStepValid()} className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next<ChevronRight className="w-5 h-5 ml-2" /></button>
-                    ) : (
-                        <button onClick={handlePayment} disabled={!isStepValid() || isLoading || !isCashfreeReady} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60">
-                            {isLoading ? (<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>)
-                                : !isCashfreeReady ? ('Initializing...')
-                                    : (<>Proceed to Payment<CreditCard className="w-5 h-5 ml-2" /></>)}
-                        </button>
-                    )}
-                </div>
-
-                <div className="mt-12 text-center bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Questions? Contact the event crew:</h3>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                        <a href="mailto:reelhaus.hyd@gmail.com" className="flex items-center text-gray-700 hover:text-yellow-600 transition-colors"><Mail className="w-5 h-5 text-yellow-500 mr-2" /><span>reelhaus.hyd@gmail.com</span></a>
-                        <div className="flex items-center gap-x-4">
-                            <Phone className="w-5 h-5 text-yellow-500" />
-                            <a href="tel:+919392449721" className="text-gray-700 hover:text-yellow-600 transition-colors">+91 93924 49721</a>
-                            <a href="tel:+919110387918" className="text-gray-700 hover:text-yellow-600 transition-colors">+91 91103 87918</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                {index < 4 && (
+                  <div className={`flex-1 h-1 mx-2 transition-all duration-300 ${
+                    step < currentStep ? 'bg-yellow-500' : 'bg-gray-200'
+                  }`} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+          <div className="text-center text-sm text-gray-600 font-semibold">
+            Step {currentStep} of 5
+          </div>
         </div>
-    );
-};
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
+          >
+            {currentStep === 1 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <Users className="w-6 h-6 mr-3 text-yellow-500" />
+                  Your Team Identity
+                </h2>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Awesome Team Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.teamName}
+                      onChange={(e) => handleInputChange('teamName', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="Enter your team name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Your Team Size:
+                    </label>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[2, 3, 4].map((size) => (
+                        <label key={size} className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.teamSize === size ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-400' : 'border-gray-300'}`}>
+                          <input
+                            type="radio"
+                            name="teamSize"
+                            value={size}
+                            checked={formData.teamSize === size}
+                            onChange={(e) => handleInputChange('teamSize', parseInt(e.target.value))}
+                            className="sr-only"
+                          />
+                          <span className="font-medium">Team of {size}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <Star className="w-6 h-6 mr-3 text-yellow-500" />
+                  Tell Us About Your Team!
+                </h2>
+
+                <div className="space-y-8">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-4">
+                      All teams will compete in all challenges. Get ready!
+                    </label>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {challenges.map((challenge) => {
+                        const IconComponent = challenge.icon;
+                        return (
+                          <div key={challenge.id} className="flex items-start p-4 bg-gray-50/50 border border-gray-200 rounded-lg">
+                            <IconComponent className="w-5 h-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <div className="font-medium text-gray-800">{challenge.name}</div>
+                              <div className="text-sm text-gray-600">{challenge.description}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-4">
+                      What are your team's interests? (Check all that apply)
+                    </label>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      {interests.map((interest) => (
+                        <label key={interest} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.interests.includes(interest) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}>
+                           <input
+                            type="checkbox"
+                            checked={formData.interests.includes(interest)}
+                            onChange={() => handleInterestToggle(interest)}
+                            className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                          />
+                          <span className="ml-3 text-gray-700">{interest}</span>
+                        </label>
+                      ))}
+                      <div className="flex items-center p-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-yellow-500">
+                        <input
+                          type="checkbox"
+                          checked={formData.otherInterest !== ''}
+                          readOnly
+                          className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                        />
+                        <input
+                          type="text"
+                          value={formData.otherInterest}
+                          onChange={(e) => handleInputChange('otherInterest', e.target.value)}
+                          placeholder="Other..."
+                          className="ml-3 flex-1 bg-transparent border-none outline-none placeholder-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      What's your team's secret superpower?
+                    </label>
+                    <textarea
+                      value={formData.superpower}
+                      onChange={(e) => handleInputChange('superpower', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      rows={3}
+                      placeholder="e.g., Super creative, amazing planners, master strategists..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <User className="w-6 h-6 mr-3 text-yellow-500" />
+                  Your Team Roster
+                </h2>
+                 <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+
+                <div className="space-y-8">
+                  {Array.from({ length: formData.teamSize }, (_, index) => (
+                    <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                        Member {index + 1} {index === 0 && '(Team Leader)'}
+                      </h3>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Full Name:
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.members[index].fullName}
+                            onChange={(e) => handleMemberChange(index, 'fullName', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            placeholder="Enter full name"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Grade:
+                          </label>
+                          <select
+                            value={formData.members[index].grade}
+                            onChange={(e) => handleMemberChange(index, 'grade', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-200/70 disabled:cursor-not-allowed"
+                            disabled={index > 0}
+                          >
+                            <option value="">Select Grade</option>
+                            <option value="7th">7th</option>
+                            <option value="8th">8th</option>
+                            <option value="9th">9th</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email Address:
+                          </label>
+                          <input
+                            type="email"
+                            value={formData.members[index].email}
+                            onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            placeholder="Enter email address"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Phone Number:
+                          </label>
+                          <input
+                            type="tel"
+                            value={formData.members[index].phoneNumber}
+                            onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            placeholder="Enter phone number"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <Instagram className="w-6 h-6 mr-3 text-yellow-500" />
+                  Stay Updated!
+                </h2>
+                <div className="text-center space-y-6">
+                    <p className="text-gray-700">
+                      Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
+                    </p>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
+                      <div className="flex justify-center">
+                        <img 
+                          src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
+                          alt="QR code for reelhaus.hyd Instagram"
+                          className="rounded-lg shadow-md"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
+                      <input
+                        type="checkbox"
+                        id="follow"
+                        checked={hasFollowedInstagram}
+                        onChange={(e) => setHasFollowedInstagram(e.target.checked)}
+                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="follow" className="text-gray-700 text-left">
+                        Yes, our team is now following @reelhaus.hyd for important updates!
+                      </label>
+                    </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && (() => {
+              const paymentDetails = calculateTotal();
+              return (
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <CreditCard className="w-6 h-6 mr-3 text-yellow-500" />
+                    Registration Fee & Payment
+                  </h2>
+
+                  <div className="space-y-6">
+                    {postPaymentError && (
+                         <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
+                           <div className='flex'>
+                             <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
+                             <div>
+                               <p className="font-bold">Payment Error</p>
+                               <p>{postPaymentError}</p>
+                             </div>
+                           </div>
+                         </div>
+                    )}
+                    <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
+                      <div className="flex items-center mb-4">
+                        <Sparkles className="w-6 h-6 text-yellow-600 mr-2" />
+                        <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
+                      </div>
+                      <p className="text-yellow-700 mb-2">
+                        Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong>
+                      </p>
+                      <p className="text-yellow-800 font-semibold">
+                        Early Bird Price: ₹449 per person (Regular: ₹499)
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
+                        <div className="space-y-3 text-gray-700">
+                          <div className="flex justify-between">
+                              <span>Team of {formData.teamSize} × ₹449</span>
+                              <span>₹{paymentDetails.subtotal.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-green-600">
+                              <span>Early Bird Discount</span>
+                              <span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span>
+                          </div>
+                          <hr className="my-2"/>
+                          <div className="flex justify-between font-semibold">
+                              <span>Subtotal</span>
+                              <span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span>
+                          </div>
+                           <div className="flex justify-between">
+                              <span>Platform Fee (5%)</span>
+                              <span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span>
+                          </div>
+                          <hr className="my-2 border-t-2 border-gray-300"/>
+                          <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2">
+                              <span>Total Amount Due</span>
+                              <span>₹{paymentDetails.total.toFixed(2)}</span>
+                          </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <input
+                        type="checkbox"
+                        id="agreeRules"
+                        checked={formData.agreedToRules}
+                        onChange={(e) => handleInputChange('agreedToRules', e.target.checked)}
+                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="agreeRules" className="text-gray-700">
+                        By checking this box, our team agrees to the rules and is ready to bring our A-game!
+                      </label>
+                    </div>
+                    {validationError && (
+                        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
+                            {validationError}
+                        </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="flex justify-between mt-8">
+          <button
+            onClick={prevStep}
+            disabled={currentStep === 1}
+            className="flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 mr-2" />
+            Previous
+          </button>
+
+          {currentStep < 5 ? (
+            <button
+              onClick={nextStep}
+              disabled={!isStepValid()}
+              className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="w-5 h-5 ml-2" />
+            </button>
+          ) : (
+            <button
+              onClick={handlePayment}
+              disabled={!formData.agreedToRules || isLoading}
+              className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60"
+            >
+              {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                  <>
+                      Proceed to Payment
+                      <CreditCard className="w-5 h-5 ml-2" />
+                  </>
+              )}
+            </button>
+          )}
+        </div>
+
+        <div className="mt-12 text-center bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Questions? Contact the event crew:</h3>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+            <div className="flex items-center">
+              <Mail className="w-5 h-5 text-yellow-500 mr-2" />
+              <span className="text-gray-700">reelhaus.hyd@gmail.com</span>
+            </div>
+            <div className="flex items-center">
+              <Phone className="w-5 h-5 text-yellow-500 mr-2" />
+              <span className="text-gray-700">+919392449721, +919110387918</span>
+            </div>
+          </div>
+        </div>
+      </div> 
+    </div>
+  );
+}; 
 
 export default Register;
