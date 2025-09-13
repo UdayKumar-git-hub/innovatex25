@@ -39,7 +39,7 @@ interface CashfreeDropinConfig {
 
 // For recognizing third-party SDKs on the window object
 interface CustomWindow extends Window {
-    cashfree: any;
+    Cashfree: any;
     supabase: any;
 }
 
@@ -346,7 +346,7 @@ const Register: React.FC = () => {
     const [isSimulating, setIsSimulating] = useState(false);
 
     // Use custom hooks to manage SDK loading
-    const { isReady: isCashfreeReady, error: cashfreeError } = useExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 'cashfree');
+    const { isReady: isCashfreeReady, error: cashfreeError } = useExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 'Cashfree');
     const { isReady: isSupabaseReady, error: supabaseError } = useExternalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', 'supabase');
 
     const [formData, setFormData] = useState<FormData>({
@@ -456,7 +456,7 @@ const Register: React.FC = () => {
         setPostPaymentError('');
         setIsLoading(true);
 
-        if (!isCashfreeReady || !window.cashfree) {
+        if (!isCashfreeReady || !window.Cashfree) {
             setValidationError(cashfreeError || "Payment gateway is not ready. Please wait a moment or refresh the page.");
             setIsLoading(false);
             return;
@@ -480,7 +480,7 @@ const Register: React.FC = () => {
 
             if (!payment_session_id) throw new Error("Failed to create a payment session.");
 
-            const cashfree = new window.cashfree();
+            const cashfree = new window.Cashfree();
             const dropinConfig: CashfreeDropinConfig = {
                 components: ["order-details", "card", "upi", "netbanking"],
                 onSuccess: async (data: any) => {
@@ -643,4 +643,5 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
 
