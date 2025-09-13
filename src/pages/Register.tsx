@@ -7,6 +7,16 @@ import {
 } from 'lucide-react';
 
 // ==================================================================
+// CONFIGURATION
+// ==================================================================
+// IMPORTANT: This URL must point to where your backend server is running.
+// For local development, if your backend server (from server_example.js) is on port 3001,
+// this URL should be 'http://localhost:3001'.
+// When deploying, replace this with your live backend server's URL.
+const BACKEND_URL = 'http://localhost:3001'; 
+
+
+// ==================================================================
 // TYPE DEFINITIONS
 // ==================================================================
 interface TeamMember {
@@ -405,8 +415,7 @@ const Register: React.FC = () => {
     const createCashfreeOrder = async (orderData: object) => {
         console.log("Requesting payment session from backend...");
         
-        // IMPORTANT: Replace '/api/create-cashfree-order' with your actual backend endpoint.
-        const response = await fetch('/api/create-cashfree-order', {
+        const response = await fetch(`${BACKEND_URL}/api/create-cashfree-order`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
