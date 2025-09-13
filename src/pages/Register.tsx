@@ -17,9 +17,7 @@ import {
   Sparkles,
   PartyPopper,
   AlertTriangle,
-  Instagram,
-  MapPin,
-  Calendar
+  Instagram
 } from 'lucide-react';
 
 interface TeamMember {
@@ -87,10 +85,13 @@ const Register: React.FC = () => {
     supabaseScript.async = true;
 
     supabaseScript.onload = () => {
+      // --- IMPORTANT ---
+      // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS FOR THIS TO WORK
       const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; 
       const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
+      // -----------------
       
-      if (supabaseUrl && supabaseAnonKey && window.supabase) {
+      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
         console.log("Supabase client initialized successfully.");
@@ -211,8 +212,8 @@ const Register: React.FC = () => {
         };
         
         if (!supabase) {
-            console.error("Supabase client is not initialized.");
-            throw new Error("Supabase is not connected.");
+            console.error("Supabase client is not initialized. Check your credentials.");
+            throw new Error("Supabase is not connected. Please check credentials.");
         }
 
         const { data, error } = await supabase
@@ -256,74 +257,63 @@ const Register: React.FC = () => {
       setIsLoading(false);
       return;
     }
-    
+
+    const paymentDetails = calculateTotal();
+
     try {
-        console.log("Creating secure payment session...");
-        
-        const paymentDetails = calculateTotal();
-        
-        // Prepare customer details from form data
-        const customerDetails = {
-            customer_name: formData.members[0].fullName,
+      // --- SECURE PAYMENT FLOW ---
+      // Step 1: Call your own backend to create a payment session.
+      // NEVER expose your secret key here.
+      const response = await fetch('/api/create-payment-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: paymentDetails.total,
+          customer_details: {
+            customer_id: `customer_${Date.now()}`,
             customer_email: formData.members[0].email,
             customer_phone: formData.members[0].phoneNumber,
-            customer_id: `customer_${Date.now()}`
-        };
-        
-        // Prepare order metadata
-        const orderMeta = {
+            customer_name: formData.members[0].fullName,
+          },
+          order_meta: {
             team_name: formData.teamName,
-            team_size: formData.teamSize,
-            grade: formData.members[0].grade,
-            event: 'InnovateX25'
-        };
-        
-        // Call your secure backend to create payment session
-        const response = await fetch('http://localhost:3001/api/create-payment-session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                amount: paymentDetails.total,
-                customer_details: customerDetails,
-                order_meta: orderMeta
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create payment session');
-        }
-        
-        const sessionData = await response.json();
-        console.log("Payment session created successfully:", sessionData.payment_session_id);
-        
-        // Initialize Cashfree with the environment from backend
-        const cashfree = new window.Cashfree({ 
-            mode: sessionData.environment || "sandbox" 
-        });
-        
-        // Launch the payment gateway with real session ID
-        const result = await cashfree.checkout({
-            paymentSessionId: sessionData.payment_session_id
-        });
-        
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment session.');
+      }
+
+      const sessionData = await response.json();
+      const { payment_session_id } = sessionData;
+
+      if (!payment_session_id) {
+        throw new Error('Invalid payment session ID received from server.');
+      }
+      
+      // Step 2: Use the session ID to launch the Cashfree checkout.
+      // Use "sandbox" for testing, "production" for live payments.
+      const cashfree = new window.Cashfree({ mode: "production" }); 
+
+      cashfree.checkout({
+        paymentSessionId: payment_session_id
+      }).then((result) => {
         if (result.error) {
-            console.error("Payment failed:", result.error.message);
-            setValidationError(`Payment failed: ${result.error.message}`);
-            setIsLoading(false);
-            return;
+          setValidationError(`Payment Error: ${result.error.message}`);
+          setIsLoading(false);
         }
-        
         if (result.paymentDetails) {
-            console.log("Payment successful:", result.paymentDetails);
-            handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
+          console.log("Payment successful:", result.paymentDetails);
+          handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
         }
-        
+      });
+
     } catch (error: any) {
         console.error("Payment initialization failed:", error);
-        setValidationError(error.message || "Could not initiate payment. Please try again later.");
+        setValidationError("Could not initiate payment. Please try again later.");
         setIsLoading(false);
     }
   };
@@ -366,16 +356,6 @@ const Register: React.FC = () => {
             </h1>
           </div>
           <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
-          <div className="flex justify-center items-center gap-6 text-sm text-gray-500 mt-4 mb-4">
-                <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>September 13, 2025</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>Hyderabad, India</span>
-                </div>
-          </div>
           <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
           
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
