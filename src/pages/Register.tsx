@@ -257,59 +257,75 @@ const Register: React.FC = () => {
       return;
     }
     
-    // ===================================================================================
-    // CRITICAL SECURITY NOTE: MOCK PAYMENT SESSION
-    // ===================================================================================
-    // In a real-world application, you MUST generate the `payment_session_id` on a
-    // secure backend server. Your frontend should call an API endpoint on your server,
-    // which then securely communicates with Cashfree using your secret keys.
-    //
-    // This frontend-only mock is for DEMONSTRATION PURPOSES ONLY.
-    // We are simulating a backend call to make the form runnable.
-    // DO NOT use this approach in production.
-    // ===================================================================================
-    console.log("Simulating a secure backend call to create a payment session...");
-
-    // This is a placeholder session ID. In a real scenario, this would come from your server.
-    // It's structured to look like a real one for the SDK to process.
-    const mockPaymentSessionId = "session_mock" + Date.now() + Math.random().toString(36).substring(2);
-
-    setTimeout(() => {
-        try {
-            console.log("Mock session created:", mockPaymentSessionId);
-
-            // Use "sandbox" for testing with test credentials, "production" for live payments.
-            const cashfree = new window.Cashfree({ mode: "sandbox" }); 
-      
-            cashfree.checkout({
-              paymentSessionId: mockPaymentSessionId
-            }).then((result) => {
-              if (result.error) {
-                // This will happen because the session ID is fake.
-                // We will simulate a success for the demo.
-                console.warn("Cashfree SDK error (expected with mock session):", result.error.message);
-                console.log("Simulating successful payment completion for demonstration.");
-                const mockPaymentId = `cf_pi_mock_${Date.now()}`;
-                handleSuccessfulPayment(mockPaymentId);
-              }
-              if (result.paymentDetails) {
-                // This block would run with a REAL session ID upon success.
-                console.log("Payment successful:", result.paymentDetails);
-                handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
-              }
-            }).catch(err => {
-                 console.error("Cashfree checkout promise rejected:", err);
-                 // Fallback to simulating success if the promise rejects due to mock data
-                 const mockPaymentId = `cf_pi_mock_fallback_${Date.now()}`;
-                 handleSuccessfulPayment(mockPaymentId);
-            });
-
-        } catch (error: any) {
-            console.error("Payment initialization failed:", error);
-            setValidationError("Could not initiate payment. Please try again later.");
-            setIsLoading(false);
+    try {
+        console.log("Creating secure payment session...");
+        
+        const paymentDetails = calculateTotal();
+        
+        // Prepare customer details from form data
+        const customerDetails = {
+            customer_name: formData.members[0].fullName,
+            customer_email: formData.members[0].email,
+            customer_phone: formData.members[0].phoneNumber,
+            customer_id: `customer_${Date.now()}`
+        };
+        
+        // Prepare order metadata
+        const orderMeta = {
+            team_name: formData.teamName,
+            team_size: formData.teamSize,
+            grade: formData.members[0].grade,
+            event: 'InnovateX25'
+        };
+        
+        // Call your secure backend to create payment session
+        const response = await fetch('http://localhost:3001/api/create-payment-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: paymentDetails.total,
+                customer_details: customerDetails,
+                order_meta: orderMeta
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create payment session');
         }
-    }, 1500); // Simulating network latency
+        
+        const sessionData = await response.json();
+        console.log("Payment session created successfully:", sessionData.payment_session_id);
+        
+        // Initialize Cashfree with the environment from backend
+        const cashfree = new window.Cashfree({ 
+            mode: sessionData.environment || "sandbox" 
+        });
+        
+        // Launch the payment gateway with real session ID
+        const result = await cashfree.checkout({
+            paymentSessionId: sessionData.payment_session_id
+        });
+        
+        if (result.error) {
+            console.error("Payment failed:", result.error.message);
+            setValidationError(`Payment failed: ${result.error.message}`);
+            setIsLoading(false);
+            return;
+        }
+        
+        if (result.paymentDetails) {
+            console.log("Payment successful:", result.paymentDetails);
+            handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
+        }
+        
+    } catch (error: any) {
+        console.error("Payment initialization failed:", error);
+        setValidationError(error.message || "Could not initiate payment. Please try again later.");
+        setIsLoading(false);
+    }
   };
  
   if (registrationComplete) {
