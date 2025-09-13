@@ -312,25 +312,6 @@ const Step5_Payment = ({ formData, handleInputChange, postPaymentError, validati
     );
 };
 
-// --- Backend Simulation Modal ---
-const SimulationModal = ({ isOpen, message, onClose }: { isOpen: boolean, message: string, onClose: () => void }) => {
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm mx-auto"
-            >
-                <Loader2 className="w-12 h-12 text-yellow-500 mx-auto animate-spin mb-4" />
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Simulating Backend Process</h3>
-                <p className="text-gray-600 text-sm">{message}</p>
-            </motion.div>
-        </div>
-    );
-};
-
-
 // ==================================================================
 // MAIN REGISTER COMPONENT
 // ==================================================================
@@ -343,7 +324,6 @@ const Register: React.FC = () => {
     const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
     const [postPaymentError, setPostPaymentError] = useState('');
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
-    const [isSimulating, setIsSimulating] = useState(false);
 
     // Use custom hooks to manage SDK loading
     const { isReady: isCashfreeReady, error: cashfreeError } = useExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 'Cashfree');
@@ -422,29 +402,24 @@ const Register: React.FC = () => {
     const nextStep = () => currentStep < 5 && isStepValid() && setCurrentStep(currentStep + 1);
     const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
-    const createCashfreeOrder = async (orderAmount: string, orderId: string, customerDetails: object) => {
-        console.warn("SIMULATION: Calling backend to create Cashfree order...");
-        setIsSimulating(true);
+    const createCashfreeOrder = async (orderData: object) => {
+        console.log("Requesting payment session from backend...");
+        
+        // IMPORTANT: Replace '/api/create-cashfree-order' with your actual backend endpoint.
+        const response = await fetch('/api/create-cashfree-order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData),
+        });
 
-        // This simulates the network delay of calling your backend.
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // In a real app, this would be a `fetch` call to your secure backend.
-        // Your backend would then use its secret key to communicate with Cashfree
-        // and return the payment_session_id.
-        // NEVER expose your secret keys on the client-side.
-        // Example:
-        // const response = await fetch('/api/create-payment-session', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ orderAmount, orderId, customerDetails })
-        // });
-        // const data = await response.json();
-        // return data;
-
-        setIsSimulating(false);
-        // This is a placeholder for the successful response from your backend.
-        return Promise.resolve({ payment_session_id: "SESSION_ID_FROM_YOUR_SECURE_BACKEND" });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Backend error: ${errorText}`);
+        }
+        
+        return response.json();
     };
 
     const handlePayment = async () => {
@@ -466,59 +441,74 @@ const Register: React.FC = () => {
             const paymentDetails = {
                 total: (449 * formData.teamSize - 50) * 1.05
             };
-            const orderAmount = paymentDetails.total.toFixed(2);
+            const orderAmount = paymentDetails.total;
             const orderId = `INNOVATEX-${Date.now()}`;
-            const customerDetails = {
-                customer_id: `CUST-${Date.now()}`,
-                customer_email: formData.members[0].email,
-                customer_phone: formData.members[0].phoneNumber,
-                customer_name: formData.members[0].fullName,
-            };
-
-            const sessionResponse = await createCashfreeOrder(orderAmount, orderId, customerDetails);
             
-            if (!sessionResponse.payment_session_id) {
-                 throw new Error("Failed to create a payment session.");
-            }
-
-            // --- SIMULATION OF CASHFREE CHECKOUT SUCCESS ---
-            // In a real app, you would call cashfree.checkout(). For this demo, we simulate success.
-            console.log("SIMULATION: Bypassing cashfree.checkout() and simulating a successful payment.");
-            
-            const fakeSuccessData = {
-                order: {
-                    status: 'PAID',
-                    payment_id: `SIM_PAY_${Date.now()}`
+            const orderData = {
+                order_amount: orderAmount,
+                order_id: orderId,
+                customer_details: {
+                    customer_id: `CUST-${Date.now()}`,
+                    customer_email: formData.members[0].email,
+                    customer_phone: formData.members[0].phoneNumber,
+                    customer_name: formData.members[0].fullName,
                 }
             };
 
-            const paymentId = fakeSuccessData.order.payment_id;
-            try {
-                if (!supabase) throw new Error("Supabase is not connected.");
-
-                const { error } = await supabase.from('registrations').insert([{
-                    team_name: formData.teamName,
-                    team_size: formData.teamSize,
-                    grade: formData.members[0].grade,
-                    interests: formData.interests,
-                    other_interest: formData.otherInterest,
-                    superpower: formData.superpower,
-                    members: formData.members.slice(0, formData.teamSize),
-                    payment_id: paymentId,
-                    total_amount: paymentDetails.total
-                }]);
-
-                if (error) throw error;
-                
-                setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
-                setRegistrationComplete(true);
-            } catch (dbError: any) {
-                console.error('CRITICAL: Error saving to Supabase after simulated payment:', dbError);
-                setPostPaymentError(`Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`);
-            } finally {
-                setIsLoading(false);
+            const sessionResponse = await createCashfreeOrder(orderData);
+            const { payment_session_id } = sessionResponse;
+            
+            if (!payment_session_id) {
+                 throw new Error("Failed to retrieve a payment session ID from the backend.");
             }
-            // --- END OF SIMULATION ---
+
+            const cashfree = new window.Cashfree();
+            cashfree.checkout({
+                paymentSessionId: payment_session_id,
+                returnUrl: `https://your-domain.com/order-status?order_id=${orderId}`, // Optional: For some payment methods
+                onSuccess: async (data: any) => {
+                    if (data.order && data.order.status === 'PAID') {
+                        const paymentId = data.order.payment_id;
+
+                        if (!supabase) {
+                           console.error('CRITICAL: Supabase client not ready. Cannot save registration.');
+                           setPostPaymentError(`Payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support immediately.`);
+                           setIsLoading(false);
+                           return;
+                        }
+
+                        try {
+                            const { error } = await supabase.from('registrations').insert([{
+                                team_name: formData.teamName,
+                                team_size: formData.teamSize,
+                                grade: formData.members[0].grade,
+                                interests: formData.interests,
+                                other_interest: formData.otherInterest,
+                                superpower: formData.superpower,
+                                members: formData.members.slice(0, formData.teamSize),
+                                payment_id: paymentId,
+                                total_amount: paymentDetails.total
+                            }]);
+
+                            if (error) throw error;
+                            
+                            setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
+                            setRegistrationComplete(true);
+
+                        } catch (dbError: any) {
+                            console.error('CRITICAL: Error saving to Supabase after payment:', dbError);
+                            setPostPaymentError(`Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                },
+                onFailure: (data: any) => {
+                    console.error('Cashfree Payment Failed:', data);
+                    setPostPaymentError(`Payment failed: ${data.order.error_text || 'Unknown error'}. Please try again.`);
+                    setIsLoading(false);
+                },
+            });
             
         } catch (error: any) {
             console.error("Error during payment initiation:", error);
@@ -565,7 +555,6 @@ const Register: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
-            <SimulationModal isOpen={isSimulating} message="Securely contacting server to create a payment session..." onClose={() => setIsSimulating(false)} />
             <div className="max-w-4xl mx-auto px-6">
                 <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
                     <div className="flex items-center justify-center mb-4">
