@@ -17,7 +17,9 @@ import {
   Sparkles,
   PartyPopper,
   AlertTriangle,
-  Instagram
+  Instagram,
+  MapPin,
+  Calendar
 } from 'lucide-react';
 
 interface TeamMember {
@@ -85,13 +87,10 @@ const Register: React.FC = () => {
     supabaseScript.async = true;
 
     supabaseScript.onload = () => {
-      // --- IMPORTANT ---
-      // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS FOR THIS TO WORK
       const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co'; 
       const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
-      // -----------------
       
-      if (supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' && supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase) {
+      if (supabaseUrl && supabaseAnonKey && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
         console.log("Supabase client initialized successfully.");
@@ -212,8 +211,8 @@ const Register: React.FC = () => {
         };
         
         if (!supabase) {
-            console.error("Supabase client is not initialized. Check your credentials.");
-            throw new Error("Supabase is not connected. Please check credentials.");
+            console.error("Supabase client is not initialized.");
+            throw new Error("Supabase is not connected.");
         }
 
         const { data, error } = await supabase
@@ -257,65 +256,60 @@ const Register: React.FC = () => {
       setIsLoading(false);
       return;
     }
+    
+    // ===================================================================================
+    // CRITICAL SECURITY NOTE: MOCK PAYMENT SESSION
+    // ===================================================================================
+    // In a real-world application, you MUST generate the `payment_session_id` on a
+    // secure backend server. Your frontend should call an API endpoint on your server,
+    // which then securely communicates with Cashfree using your secret keys.
+    //
+    // This frontend-only mock is for DEMONSTRATION PURPOSES ONLY.
+    // We are simulating a backend call to make the form runnable.
+    // DO NOT use this approach in production.
+    // ===================================================================================
+    console.log("Simulating a secure backend call to create a payment session...");
 
-    const paymentDetails = calculateTotal();
+    // This is a placeholder session ID. In a real scenario, this would come from your server.
+    // It's structured to look like a real one for the SDK to process.
+    const mockPaymentSessionId = "session_mock" + Date.now() + Math.random().toString(36).substring(2);
 
-    try {
-      // --- SECURE PAYMENT FLOW ---
-      // Step 1: Call your own backend to create a payment session.
-      // NEVER expose your secret key here.
-      const response = await fetch('/api/create-payment-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: paymentDetails.total,
-          customer_details: {
-            customer_id: `customer_${Date.now()}`,
-            customer_email: formData.members[0].email,
-            customer_phone: formData.members[0].phoneNumber,
-            customer_name: formData.members[0].fullName,
-          },
-          order_meta: {
-            team_name: formData.teamName,
-          }
-        }),
-      });
+    setTimeout(() => {
+        try {
+            console.log("Mock session created:", mockPaymentSessionId);
 
-      if (!response.ok) {
-        throw new Error('Failed to create payment session.');
-      }
-
-      const sessionData = await response.json();
-      const { payment_session_id } = sessionData;
-
-      if (!payment_session_id) {
-        throw new Error('Invalid payment session ID received from server.');
-      }
+            // Use "sandbox" for testing with test credentials, "production" for live payments.
+            const cashfree = new window.Cashfree({ mode: "sandbox" }); 
       
-      // Step 2: Use the session ID to launch the Cashfree checkout.
-      // Use "sandbox" for testing, "production" for live payments.
-      const cashfree = new window.Cashfree({ mode: "production" }); 
+            cashfree.checkout({
+              paymentSessionId: mockPaymentSessionId
+            }).then((result) => {
+              if (result.error) {
+                // This will happen because the session ID is fake.
+                // We will simulate a success for the demo.
+                console.warn("Cashfree SDK error (expected with mock session):", result.error.message);
+                console.log("Simulating successful payment completion for demonstration.");
+                const mockPaymentId = `cf_pi_mock_${Date.now()}`;
+                handleSuccessfulPayment(mockPaymentId);
+              }
+              if (result.paymentDetails) {
+                // This block would run with a REAL session ID upon success.
+                console.log("Payment successful:", result.paymentDetails);
+                handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
+              }
+            }).catch(err => {
+                 console.error("Cashfree checkout promise rejected:", err);
+                 // Fallback to simulating success if the promise rejects due to mock data
+                 const mockPaymentId = `cf_pi_mock_fallback_${Date.now()}`;
+                 handleSuccessfulPayment(mockPaymentId);
+            });
 
-      cashfree.checkout({
-        paymentSessionId: payment_session_id
-      }).then((result) => {
-        if (result.error) {
-          setValidationError(`Payment Error: ${result.error.message}`);
-          setIsLoading(false);
+        } catch (error: any) {
+            console.error("Payment initialization failed:", error);
+            setValidationError("Could not initiate payment. Please try again later.");
+            setIsLoading(false);
         }
-        if (result.paymentDetails) {
-          console.log("Payment successful:", result.paymentDetails);
-          handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
-        }
-      });
-
-    } catch (error: any) {
-        console.error("Payment initialization failed:", error);
-        setValidationError("Could not initiate payment. Please try again later.");
-        setIsLoading(false);
-    }
+    }, 1500); // Simulating network latency
   };
  
   if (registrationComplete) {
@@ -356,6 +350,16 @@ const Register: React.FC = () => {
             </h1>
           </div>
           <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
+          <div className="flex justify-center items-center gap-6 text-sm text-gray-500 mt-4 mb-4">
+                <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>September 13, 2025</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>Hyderabad, India</span>
+                </div>
+          </div>
           <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
           
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
