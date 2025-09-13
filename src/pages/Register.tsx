@@ -54,20 +54,9 @@ const useExternalScript = (src: string, sdkName: string) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (document.querySelector(`script[src="${src}"]`)) {
-            // Script already exists, assume it might be ready.
-            // A more robust implementation might check window[sdkName] here.
-            setIsReady(true);
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = true;
-
         const pollForSdk = (retries = 10, interval = 500) => {
             if (window[sdkName as keyof Window]) {
-                console.log(`${sdkName} SDK is available.`);
+                console.log(`${sdkName} SDK is available on the window object.`);
                 setIsReady(true);
                 return;
             }
@@ -75,29 +64,55 @@ const useExternalScript = (src: string, sdkName: string) => {
             if (retries > 0) {
                 setTimeout(() => pollForSdk(retries - 1), interval);
             } else {
-                console.error(`Failed to initialize the ${sdkName} SDK after multiple attempts.`);
-                setError(`Could not load ${sdkName}. Please check your network connection and refresh.`);
+                const errorMessage = `Failed to initialize the ${sdkName} SDK after multiple attempts.`;
+                console.error(errorMessage);
+                setError(`${errorMessage} Please check your network connection and refresh.`);
             }
         };
 
-        script.onload = () => {
+        // Find existing script tag
+        let script = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+        let scriptAddedByThisHook = false;
+
+        const handleLoad = () => {
             console.log(`${sdkName} script has finished loading. Polling for initialization...`);
             pollForSdk();
         };
 
-        script.onerror = () => {
-            console.error(`Failed to load the ${sdkName} script.`);
-            setError(`Could not load ${sdkName}. Please check network or ad blockers.`);
+        const handleError = () => {
+            const errorMessage = `Failed to load the ${sdkName} script.`;
+            console.error(errorMessage);
+            setError(`${errorMessage} Please check network settings or ad blockers.`);
         };
 
-        document.body.appendChild(script);
+        if (script) {
+            // If script tag exists, the SDK might already be on the window or is in the process of loading.
+            // We just need to start polling for it.
+            console.log(`${sdkName} script tag already exists. Polling for SDK object.`);
+            pollForSdk();
+        } else {
+            // If no script tag, create it, add listeners, and append to the document.
+            script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.addEventListener('load', handleLoad);
+            script.addEventListener('error', handleError);
+            document.body.appendChild(script);
+            scriptAddedByThisHook = true;
+        }
 
         return () => {
-            if (document.body.contains(script)) {
-                document.body.removeChild(script);
+            // Only clean up (remove script and listeners) if this specific hook instance added it.
+            // This prevents issues if the script is shared or during fast re-renders (like in React StrictMode).
+            if (script && scriptAddedByThisHook) {
+                script.removeEventListener('load', handleLoad);
+                script.removeEventListener('error', handleError);
+                if (document.body.contains(script)) {
+                    document.body.removeChild(script);
+                }
             }
         };
-    }, [src, sdkName]);
+    }, [src, sdkName]); // Effect runs only when src or sdkName changes
 
     return { isReady, error };
 };
