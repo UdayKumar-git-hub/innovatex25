@@ -49,7 +49,7 @@ declare const window: CustomWindow;
 const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSdkReady, setIsSdkReady] = useState(false); // Tracks if the payment SDK is loaded
+  const [isSdkReady, setIsSdkReady] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [supabase, setSupabase] = useState<any>(null);
   const [registrationComplete, setRegistrationComplete] = useState(false);
@@ -72,18 +72,43 @@ const Register: React.FC = () => {
     agreedToRules: false
   });
 
+  // ==================================================================
+  // START: ROBUST SCRIPT LOADING LOGIC
+  // This section was updated to prevent race conditions by polling for
+  // the SDK after the script has loaded.
+  // ==================================================================
   useEffect(() => {
+    const checkSdkReady = () => {
+      if (window.cashfree) {
+        console.log("Cashfree SDK is available on the window object.");
+        setIsSdkReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    const pollForSdk = (retries = 5) => {
+      if (checkSdkReady()) return;
+
+      if (retries > 0) {
+        setTimeout(() => pollForSdk(retries - 1), 500); // Poll every 500ms
+      } else {
+        console.error("Failed to initialize the Cashfree SDK after multiple attempts.");
+        setPostPaymentError("Could not load payment gateway. Please check your network connection and refresh the page.");
+      }
+    };
+
     // Load Cashfree Script
     const cashfreeScript = document.createElement('script');
     cashfreeScript.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
     cashfreeScript.async = true;
     cashfreeScript.onload = () => {
-        console.log("Cashfree SDK loaded successfully.");
-        setIsSdkReady(true);
+        console.log("Cashfree SDK script has finished loading. Polling for initialization...");
+        pollForSdk(); // Start polling after the script file is downloaded
     };
     cashfreeScript.onerror = () => {
-        console.error("Failed to load the Cashfree SDK. Please check the network connection or ad blockers.");
-        setPostPaymentError("Could not load payment gateway. Please refresh the page and try again.");
+        console.error("Failed to load the Cashfree SDK script.");
+        setPostPaymentError("Could not load payment gateway. Please check your network connection or ad blockers.");
     };
     document.body.appendChild(cashfreeScript);
 
@@ -93,7 +118,7 @@ const Register: React.FC = () => {
     supabaseScript.async = true;
     supabaseScript.onload = () => {
       const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
-      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3MjkpODMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
 
       if (supabaseUrl && supabaseAnonKey && window.supabase) {
         const { createClient } = window.supabase;
@@ -114,6 +139,10 @@ const Register: React.FC = () => {
       }
     }
   }, []);
+  // ==================================================================
+  // END: ROBUST SCRIPT LOADING LOGIC
+  // ==================================================================
+
 
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
@@ -199,24 +228,11 @@ const Register: React.FC = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
   
-  // --- ⚠️ IMPORTANT: BACKEND FUNCTION REQUIRED ---
-  // This function simulates a call to a secure backend endpoint.
-  // You MUST create a real backend function (e.g., a serverless function) to securely generate the payment_session_id.
   const createCashfreeOrder = async (orderAmount: string, orderId: string, customerDetails: object) => {
     console.warn("SIMULATION: Calling backend to create Cashfree order...");
-    // In a real app, this would be a fetch call to your own backend API:
-    // const response = await fetch('/api/create-cashfree-order', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ orderAmount, orderId, customerDetails }),
-    // });
-    // if (!response.ok) {
-    //   throw new Error('Failed to create payment session on the server.');
-    // }
-    // const data = await response.json();
-    // return data;
-    
-    // For demonstration, this returns a placeholder. Replace with your actual backend call.
+    // ⚠️ IMPORTANT: In a real app, this MUST be a fetch call to your own secure backend API.
+    // Example: const response = await fetch('/api/create-cashfree-order', { ... });
+    // Your backend will then securely use your secret key to talk to Cashfree.
     alert("This is a demo. In a real app, this would call a secure backend to get a payment session ID. See code comments.");
     return Promise.resolve({ payment_session_id: "SESSION_ID_FROM_YOUR_BACKEND" });
   };
@@ -317,8 +333,6 @@ const Register: React.FC = () => {
         paymentSessionId: payment_session_id,
         ...dropinConfig
       });
-      // The `checkout` method is asynchronous for Drop-in. 
-      // Results are handled by the `onSuccess` and `onFailure` callbacks.
 
     } catch (error: any) {
       console.error("Error during payment initiation:", error);
