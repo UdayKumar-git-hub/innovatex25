@@ -38,9 +38,9 @@ interface FormData {
   agreedToRules: boolean;
 }
 
-// For TypeScript to recognize the Razorpay and Supabase objects on the window
+// For TypeScript to recognize the Cashfree and Supabase objects on the window
 interface CustomWindow extends Window {
-    Razorpay: any;
+    Cashfree: any;
     supabase: any; // Add supabase to the window interface
 }
 
@@ -73,11 +73,11 @@ const Register: React.FC = () => {
   });
 
   useEffect(() => {
-    // Load Razorpay Script
-    const razorpayScript = document.createElement('script');
-    razorpayScript.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    razorpayScript.async = true;
-    document.body.appendChild(razorpayScript);
+    // Load Cashfree Script
+    const cashfreeScript = document.createElement('script');
+    cashfreeScript.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    cashfreeScript.async = true;
+    document.body.appendChild(cashfreeScript);
 
     // Load Supabase Script
     const supabaseScript = document.createElement('script');
@@ -102,8 +102,8 @@ const Register: React.FC = () => {
     document.body.appendChild(supabaseScript);
 
     return () => {
-        if (document.body.contains(razorpayScript)) {
-            document.body.removeChild(razorpayScript);
+        if (document.body.contains(cashfreeScript)) {
+            document.body.removeChild(cashfreeScript);
         }
         if (document.body.contains(supabaseScript)) {
             document.body.removeChild(supabaseScript);
@@ -195,6 +195,54 @@ const Register: React.FC = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  const handleSuccessfulPayment = async (paymentId: string) => {
+    const paymentDetails = calculateTotal();
+    try {
+        const registrationData = {
+            team_name: formData.teamName,
+            team_size: formData.teamSize,
+            grade: formData.members[0].grade,
+            interests: formData.interests,
+            other_interest: formData.otherInterest,
+            superpower: formData.superpower,
+            members: formData.members.slice(0, formData.teamSize),
+            payment_id: paymentId,
+            total_amount: paymentDetails.total,
+            payment_gateway: 'Cashfree'
+        };
+        
+        if (!supabase) {
+            console.error("Supabase client is not initialized. Check your credentials.");
+            throw new Error("Supabase is not connected. Please check credentials.");
+        }
+
+        const { data, error } = await supabase
+            .from('registrations')
+            .insert([registrationData])
+            .select();
+
+        if (error) {
+            throw error;
+        }
+
+        console.log('Successfully saved to Supabase:', data);
+        setFinalPaymentInfo({
+            teamName: formData.teamName,
+            paymentId: paymentId
+        });
+        setRegistrationComplete(true);
+
+    } catch (error: any) {
+        console.error('CRITICAL: Error saving to Supabase after payment:', error);
+        setPostPaymentError(
+            `Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`
+        );
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+
   const handlePayment = async () => {
     if (!isStepValid()) {
         setValidationError("Please ensure you've agreed to the rules before proceeding.");
@@ -204,101 +252,70 @@ const Register: React.FC = () => {
     setPostPaymentError('');
     setIsLoading(true);
 
-    const paymentDetails = calculateTotal();
-    const amountInPaise = Math.round(paymentDetails.total * 100);
-
-    const notesData = {
-      team_name: formData.teamName,
-      team_size: formData.teamSize,
-      team_grade: formData.members[0].grade,
-      ...formData.members.slice(0, formData.teamSize).reduce((acc, member, index) => {
-        acc[`member_${index + 1}_name`] = member.fullName;
-        acc[`member_${index + 1}_email`] = member.email;
-        acc[`member_${index + 1}_phone`] = member.phoneNumber;
-        return acc;
-      }, {} as Record<string, any>)
-    };
-
-    const options = {
-        key: "rzp_test_RFuWGvtLtOiYXU", 
-        amount: amountInPaise,
-        currency: "INR",
-        name: "InnovateX25 Registration",
-        description: `Fee for Team '${formData.teamName}' with ${formData.teamSize} members.`,
-        image: "https://i.ibb.co/L5T1x6m/reelhaus-logo.png",
-        
-        handler: async function (response: any) {
-            console.log('Payment Successful:', response);
-            
-            try {
-                const registrationData = {
-                    team_name: formData.teamName,
-                    team_size: formData.teamSize,
-                    grade: formData.members[0].grade,
-                    interests: formData.interests,
-                    other_interest: formData.otherInterest,
-                    superpower: formData.superpower,
-                    members: formData.members.slice(0, formData.teamSize),
-                    payment_id: response.razorpay_payment_id,
-                    total_amount: paymentDetails.total
-                };
-                
-                if (!supabase) {
-                    console.error("Supabase client is not initialized. Check your credentials in Register.jsx.");
-                    throw new Error("Supabase is not connected. Please check credentials.");
-                }
-
-                const { data, error } = await supabase
-                    .from('registrations')
-                    .insert([registrationData])
-                    .select();
-
-                if (error) {
-                    throw error;
-                }
-
-                console.log('Successfully saved to Supabase:', data);
-                setFinalPaymentInfo({
-                    teamName: formData.teamName,
-                    paymentId: response.razorpay_payment_id
-                });
-                setRegistrationComplete(true);
-
-            } catch (error: any) {
-                console.error('CRITICAL: Error saving to Supabase after payment:', error);
-                setPostPaymentError(
-                    `Your payment was successful (ID: ${response.razorpay_payment_id}), but we couldn't save your registration. Please contact support with this Payment ID.`
-                );
-            } finally {
-                setIsLoading(false);
-            }
-        },
-        prefill: {
-            name: formData.members[0].fullName,
-            email: formData.members[0].email,
-            contact: formData.members[0].phoneNumber,
-        },
-        notes: notesData,
-        theme: {
-            color: "#FBBF24",
-            backdrop_color: "rgba(0, 0, 0, 0.6)"
-        },
-        modal: {
-            ondismiss: function () {
-                console.log('Payment modal dismissed.');
-                setIsLoading(false);
-            }
-        }
-    };
-
-    if (!window.Razorpay) {
-        setValidationError("Payment gateway failed to load. Please check your internet and try again.");
-        setIsLoading(false);
-        return;
+    if (!window.Cashfree) {
+      setValidationError("Payment gateway failed to load. Please check your internet and try again.");
+      setIsLoading(false);
+      return;
     }
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+    const paymentDetails = calculateTotal();
+
+    try {
+      // --- SECURE PAYMENT FLOW ---
+      // Step 1: Call your own backend to create a payment session.
+      // NEVER expose your secret key here.
+      const response = await fetch('/api/create-payment-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: paymentDetails.total,
+          customer_details: {
+            customer_id: `customer_${Date.now()}`,
+            customer_email: formData.members[0].email,
+            customer_phone: formData.members[0].phoneNumber,
+            customer_name: formData.members[0].fullName,
+          },
+          order_meta: {
+            team_name: formData.teamName,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment session.');
+      }
+
+      const sessionData = await response.json();
+      const { payment_session_id } = sessionData;
+
+      if (!payment_session_id) {
+        throw new Error('Invalid payment session ID received from server.');
+      }
+      
+      // Step 2: Use the session ID to launch the Cashfree checkout.
+      // Use "sandbox" for testing, "production" for live payments.
+      const cashfree = new window.Cashfree({ mode: "production" }); 
+
+      cashfree.checkout({
+        paymentSessionId: payment_session_id
+      }).then((result) => {
+        if (result.error) {
+          setValidationError(`Payment Error: ${result.error.message}`);
+          setIsLoading(false);
+        }
+        if (result.paymentDetails) {
+          console.log("Payment successful:", result.paymentDetails);
+          handleSuccessfulPayment(result.paymentDetails.cf_payment_id);
+        }
+      });
+
+    } catch (error: any) {
+        console.error("Payment initialization failed:", error);
+        setValidationError("Could not initiate payment. Please try again later.");
+        setIsLoading(false);
+    }
   };
  
   if (registrationComplete) {
