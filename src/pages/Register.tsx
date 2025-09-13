@@ -3,17 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
     ChevronLeft, Check, Star, Mail, Phone, User, CreditCard,
-    Sparkles, PartyPopper, AlertTriangle, Instagram, Loader2
+    Sparkles, PartyPopper, AlertTriangle, Instagram
 } from 'lucide-react';
 
 // ==================================================================
 // CONFIGURATION
 // ==================================================================
-// IMPORTANT: This URL must point to where your backend server is running.
-// For local development, if your backend server (from server_example.js) is on port 3001,
-// this URL should be 'http://localhost:3001'.
-// When deploying, replace this with your live backend server's URL.
-const BACKEND_URL = 'http://localhost:3001'; 
+// This URL must point to your running backend server.
+const BACKEND_URL = 'http://localhost:3001';
 
 
 // ==================================================================
@@ -29,7 +26,6 @@ interface TeamMember {
 interface FormData {
     teamName: string;
     teamSize: number;
-    challenges: string[];
     interests: string[];
     otherInterest: string;
     superpower: string;
@@ -37,23 +33,13 @@ interface FormData {
     agreedToRules: boolean;
 }
 
-interface CashfreeDropinConfig {
-    components: string[];
-    onSuccess: (data: any) => void;
-    onFailure: (data: any) => void;
-    style: {
-        theme: string;
-        color: string;
-    };
-}
-
 // For recognizing third-party SDKs on the window object
 interface CustomWindow extends Window {
-    Cashfree: any;
-    supabase: any;
+    Cashfree?: any;
+    supabase?: any;
 }
-
 declare const window: CustomWindow;
+
 
 // ==================================================================
 // CUSTOM HOOK: useExternalScript
@@ -64,65 +50,57 @@ const useExternalScript = (src: string, sdkName: string) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const pollForSdk = (retries = 10, interval = 500) => {
-            if (window[sdkName as keyof Window]) {
-                console.log(`${sdkName} SDK is available on the window object.`);
-                setIsReady(true);
-                return;
-            }
+        // Check if the SDK object is already available on the window
+        if (window[sdkName as keyof Window]) {
+            console.log(`${sdkName} SDK already available.`);
+            setIsReady(true);
+            return;
+        }
 
-            if (retries > 0) {
-                setTimeout(() => pollForSdk(retries - 1), interval);
-            } else {
-                const errorMessage = `Failed to initialize the ${sdkName} SDK after multiple attempts.`;
-                console.error(errorMessage);
-                setError(`${errorMessage} Please check your network connection and refresh.`);
-            }
-        };
-
-        // Find existing script tag
+        // Find existing script tag to avoid duplicates
         let script = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
-        let scriptAddedByThisHook = false;
-
+        
         const handleLoad = () => {
-            console.log(`${sdkName} script has finished loading. Polling for initialization...`);
-            pollForSdk();
+            console.log(`${sdkName} script loaded successfully.`);
+            // A small delay to ensure the SDK has initialized on the window object
+            setTimeout(() => {
+                if (window[sdkName as keyof Window]) {
+                    setIsReady(true);
+                } else {
+                    const errorMessage = `SDK ${sdkName} loaded but not found on window object.`;
+                    console.error(errorMessage);
+                    setError(errorMessage);
+                }
+            }, 100);
         };
 
         const handleError = () => {
-            const errorMessage = `Failed to load the ${sdkName} script.`;
+            const errorMessage = `Failed to load the ${sdkName} script. Check network or ad-blockers.`;
             console.error(errorMessage);
-            setError(`${errorMessage} Please check network settings or ad blockers.`);
+            setError(errorMessage);
         };
 
-        if (script) {
-            // If script tag exists, the SDK might already be on the window or is in the process of loading.
-            // We just need to start polling for it.
-            console.log(`${sdkName} script tag already exists. Polling for SDK object.`);
-            pollForSdk();
-        } else {
-            // If no script tag, create it, add listeners, and append to the document.
+        if (!script) {
             script = document.createElement('script');
             script.src = src;
             script.async = true;
+            document.body.appendChild(script);
             script.addEventListener('load', handleLoad);
             script.addEventListener('error', handleError);
-            document.body.appendChild(script);
-            scriptAddedByThisHook = true;
+        } else {
+             // If script exists, it might be loading; attach listeners
+            script.addEventListener('load', handleLoad);
+            script.addEventListener('error', handleError);
         }
 
         return () => {
-            // Only clean up (remove script and listeners) if this specific hook instance added it.
-            // This prevents issues if the script is shared or during fast re-renders (like in React StrictMode).
-            if (script && scriptAddedByThisHook) {
+            // Cleanup listeners
+            if (script) {
                 script.removeEventListener('load', handleLoad);
                 script.removeEventListener('error', handleError);
-                if (document.body.contains(script)) {
-                    document.body.removeChild(script);
-                }
             }
         };
-    }, [src, sdkName]); // Effect runs only when src or sdkName changes
+    }, [src, sdkName]);
 
     return { isReady, error };
 };
@@ -130,10 +108,8 @@ const useExternalScript = (src: string, sdkName: string) => {
 
 // ==================================================================
 // UI & FORM COMPONENTS
-// Reusable components to keep the main render logic clean.
 // ==================================================================
 
-// --- Step 1: Team Identity ---
 const Step1_TeamIdentity = ({ formData, handleInputChange }: { formData: FormData, handleInputChange: (field: string, value: any) => void }) => (
     <div>
         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><Users className="w-6 h-6 mr-3 text-yellow-500" />Your Team Identity</h2>
@@ -157,7 +133,6 @@ const Step1_TeamIdentity = ({ formData, handleInputChange }: { formData: FormDat
     </div>
 );
 
-// --- Step 2: Team Details & Interests ---
 const Step2_TeamDetails = ({ formData, handleInputChange, handleInterestToggle }: { formData: FormData, handleInputChange: (field: string, value: any) => void, handleInterestToggle: (interest: string) => void }) => {
     const challenges = [
         { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
@@ -209,20 +184,17 @@ const Step2_TeamDetails = ({ formData, handleInputChange, handleInterestToggle }
     );
 };
 
-// --- Reusable Form Input ---
 const FormInput = ({ label, type = 'text', value, onChange, placeholder, disabled = false }: { label: string, type?: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, placeholder: string, disabled?: boolean }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}:</label>
-        <input type={type} value={value} onChange={onChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent" placeholder={placeholder} disabled={disabled} />
+        <input type={type} value={value} onChange={onChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-100" placeholder={placeholder} disabled={disabled} />
     </div>
 );
 
-
-// --- Step 3: Team Roster ---
 const Step3_TeamRoster = ({ formData, handleMemberChange }: { formData: FormData, handleMemberChange: (index: number, field: string, value: string) => void }) => (
     <div>
         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><User className="w-6 h-6 mr-3 text-yellow-500" />Your Team Roster</h2>
-        <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+        <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader and applied to all members.</p>
         <div className="space-y-8">
             {Array.from({ length: formData.teamSize }).map((_, index) => (
                 <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
@@ -239,7 +211,7 @@ const Step3_TeamRoster = ({ formData, handleMemberChange }: { formData: FormData
                             </select>
                         </div>
                         <FormInput label="Email Address" type="email" value={formData.members[index].email} onChange={(e) => handleMemberChange(index, 'email', e.target.value)} placeholder="Enter email address" />
-                        <FormInput label="Phone Number" type="tel" value={formData.members[index].phoneNumber} onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)} placeholder="Enter phone number" />
+                        <FormInput label="Phone Number" type="tel" value={formData.members[index].phoneNumber} onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)} placeholder="Enter 10-digit number" />
                     </div>
                 </div>
             ))}
@@ -247,7 +219,6 @@ const Step3_TeamRoster = ({ formData, handleMemberChange }: { formData: FormData
     </div>
 );
 
-// --- Step 4: Social Follow ---
 const Step4_Social = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, setHasFollowed: (value: boolean) => void }) => (
     <div>
         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><Instagram className="w-6 h-6 mr-3 text-yellow-500" />Stay Updated!</h2>
@@ -256,6 +227,7 @@ const Step4_Social = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, s
             <div>
                 <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
                 <div className="flex justify-center">
+                    {/* It's better to save the QR code image in your project's public folder and link to it directly */}
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" alt="QR code for reelhaus.hyd Instagram" className="rounded-lg shadow-md" />
                 </div>
             </div>
@@ -267,21 +239,8 @@ const Step4_Social = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, s
     </div>
 );
 
-// --- Step 5: Payment ---
-const Step5_Payment = ({ formData, handleInputChange, postPaymentError, validationError }: { formData: FormData, handleInputChange: (field: string, value: any) => void, postPaymentError: string, validationError: string }) => {
-    const calculateTotal = useCallback(() => {
-        const basePrice = 449;
-        const teamDiscount = 50;
-        const platformFeeRate = 0.05;
-        const subtotal = basePrice * formData.teamSize;
-        const priceAfterDiscount = subtotal - teamDiscount;
-        const platformFee = priceAfterDiscount * platformFeeRate;
-        const total = priceAfterDiscount + platformFee;
-        return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
-    }, [formData.teamSize]);
-
+const Step5_Payment = ({ formData, handleInputChange, postPaymentError, validationError, calculateTotal }: { formData: FormData, handleInputChange: (field: string, value: any) => void, postPaymentError: string, validationError: string, calculateTotal: () => any }) => {
     const paymentDetails = calculateTotal();
-    // Updated date to be in the future relative to the prompt's simulated date.
     const earlyBirdDate = "September 30th, 2025";
 
     return (
@@ -322,6 +281,7 @@ const Step5_Payment = ({ formData, handleInputChange, postPaymentError, validati
     );
 };
 
+
 // ==================================================================
 // MAIN REGISTER COMPONENT
 // ==================================================================
@@ -335,14 +295,12 @@ const Register: React.FC = () => {
     const [postPaymentError, setPostPaymentError] = useState('');
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
 
-    // Use custom hooks to manage SDK loading
     const { isReady: isCashfreeReady, error: cashfreeError } = useExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 'Cashfree');
     const { isReady: isSupabaseReady, error: supabaseError } = useExternalScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', 'supabase');
 
     const [formData, setFormData] = useState<FormData>({
         teamName: '',
         teamSize: 2,
-        challenges: ['ipl', 'brand', 'innovators', 'echoes'],
         interests: [],
         otherInterest: '',
         superpower: '',
@@ -350,7 +308,6 @@ const Register: React.FC = () => {
         agreedToRules: false
     });
 
-    // Initialize Supabase client once the script is ready
     useEffect(() => {
         if (isSupabaseReady && window.supabase) {
             const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
@@ -364,13 +321,14 @@ const Register: React.FC = () => {
     }, [isSupabaseReady]);
 
     const handleInputChange = (field: string, value: any) => {
+        setValidationError('');
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
     const handleMemberChange = (index: number, field: string, value: string) => {
+        setValidationError('');
         const newMembers = [...formData.members];
         newMembers[index] = { ...newMembers[index], [field]: value };
-        // Sync grade for all members based on team leader
         if (index === 0 && field === 'grade') {
             for (let i = 1; i < formData.teamSize; i++) {
                 newMembers[i] = { ...newMembers[i], grade: value };
@@ -380,22 +338,34 @@ const Register: React.FC = () => {
     };
 
     const handleInterestToggle = (interest: string) => {
+        setValidationError('');
         const newInterests = formData.interests.includes(interest)
             ? formData.interests.filter(i => i !== interest)
             : [...formData.interests, interest];
         handleInputChange('interests', newInterests);
     };
 
+    const calculateTotal = useCallback(() => {
+        const basePrice = 449;
+        const teamDiscount = 50;
+        const platformFeeRate = 0.05;
+        const subtotal = basePrice * formData.teamSize;
+        const priceAfterDiscount = subtotal - teamDiscount;
+        const platformFee = priceAfterDiscount * platformFeeRate;
+        const total = priceAfterDiscount + platformFee;
+        return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
+    }, [formData.teamSize]);
+
     const isStepValid = useCallback(() => {
         switch (currentStep) {
             case 1:
-                return formData.teamName.trim() !== '';
+                return formData.teamName.trim().length > 2;
             case 2:
-                return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
+                return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim().length > 10;
             case 3:
                 for (let i = 0; i < formData.teamSize; i++) {
                     const member = formData.members[i];
-                    if (!member.fullName.trim() || !member.grade || !member.email.trim().match(/^\S+@\S+\.\S+$/) || !member.phoneNumber.trim().match(/^\d{10,}$/)) {
+                    if (!member.fullName.trim() || !member.grade || !member.email.trim().match(/^\S+@\S+\.\S+$/) || !member.phoneNumber.trim().match(/^\d{10}$/)) {
                         return false;
                     }
                 }
@@ -409,31 +379,22 @@ const Register: React.FC = () => {
         }
     }, [currentStep, formData, hasFollowedInstagram]);
 
-    const nextStep = () => currentStep < 5 && isStepValid() && setCurrentStep(currentStep + 1);
-    const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
-
-    const createCashfreeOrder = async (orderData: object) => {
-        console.log("Requesting payment session from backend...");
-        
-        const response = await fetch(`${BACKEND_URL}/api/create-cashfree-order`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(orderData),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Backend error: ${errorText}`);
+    const nextStep = () => {
+        if (!isStepValid()) {
+            setValidationError('Please complete all required fields correctly before continuing.');
+            return;
         }
-        
-        return response.json();
+        setValidationError('');
+        if (currentStep < 5) setCurrentStep(currentStep + 1);
+    };
+    const prevStep = () => {
+        setValidationError('');
+        if (currentStep > 1) setCurrentStep(currentStep - 1);
     };
 
     const handlePayment = async () => {
         if (!isStepValid()) {
-            setValidationError("Please ensure you've agreed to the rules.");
+            setValidationError("Please agree to the rules before proceeding.");
             return;
         }
         setValidationError('');
@@ -441,20 +402,17 @@ const Register: React.FC = () => {
         setIsLoading(true);
 
         if (!isCashfreeReady) {
-            setValidationError(cashfreeError || "Payment gateway is not ready. Please wait a moment or refresh the page.");
+            setValidationError(cashfreeError || "Payment gateway is not ready. Please refresh.");
             setIsLoading(false);
             return;
         }
 
         try {
-            const paymentDetails = {
-                total: (449 * formData.teamSize - 50) * 1.05
-            };
-            const orderAmount = paymentDetails.total;
+            const { total } = calculateTotal();
             const orderId = `INNOVATEX-${Date.now()}`;
             
             const orderData = {
-                order_amount: orderAmount,
+                order_amount: total.toFixed(2),
                 order_id: orderId,
                 customer_details: {
                     customer_id: `CUST-${Date.now()}`,
@@ -464,29 +422,32 @@ const Register: React.FC = () => {
                 }
             };
 
-            const sessionResponse = await createCashfreeOrder(orderData);
-            const { payment_session_id } = sessionResponse;
+            const response = await fetch(`${BACKEND_URL}/api/create-cashfree-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData),
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to communicate with the server.');
+            }
+
+            const { payment_session_id } = await response.json();
             
             if (!payment_session_id) {
-                 throw new Error("Failed to retrieve a payment session ID from the backend.");
+                throw new Error("Could not retrieve a payment session ID.");
             }
 
             const cashfree = new window.Cashfree();
             cashfree.checkout({
                 paymentSessionId: payment_session_id,
-                returnUrl: `https://your-domain.com/order-status?order_id=${orderId}`, // Optional: For some payment methods
                 onSuccess: async (data: any) => {
                     if (data.order && data.order.status === 'PAID') {
                         const paymentId = data.order.payment_id;
-
-                        if (!supabase) {
-                           console.error('CRITICAL: Supabase client not ready. Cannot save registration.');
-                           setPostPaymentError(`Payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support immediately.`);
-                           setIsLoading(false);
-                           return;
-                        }
-
                         try {
+                            if (!supabase) throw new Error("Supabase client is not ready.");
+
                             const { error } = await supabase.from('registrations').insert([{
                                 team_name: formData.teamName,
                                 team_size: formData.teamSize,
@@ -496,17 +457,16 @@ const Register: React.FC = () => {
                                 superpower: formData.superpower,
                                 members: formData.members.slice(0, formData.teamSize),
                                 payment_id: paymentId,
-                                total_amount: paymentDetails.total
+                                total_amount: total
                             }]);
 
                             if (error) throw error;
                             
                             setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
                             setRegistrationComplete(true);
-
                         } catch (dbError: any) {
-                            console.error('CRITICAL: Error saving to Supabase after payment:', dbError);
-                            setPostPaymentError(`Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`);
+                            console.error('CRITICAL: Supabase save failed after payment:', dbError);
+                            setPostPaymentError(`Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support.`);
                         } finally {
                             setIsLoading(false);
                         }
@@ -518,10 +478,10 @@ const Register: React.FC = () => {
                     setIsLoading(false);
                 },
             });
-            
+
         } catch (error: any) {
-            console.error("Error during payment initiation:", error);
-            setValidationError(error.message || "Could not connect to the payment gateway.");
+            console.error("Payment Initiation Error:", error);
+            setValidationError(error.message);
             setIsLoading(false);
         }
     };
@@ -531,16 +491,10 @@ const Register: React.FC = () => {
     if (registrationComplete) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto"
-                >
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto">
                     <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
-                    <p className="text-gray-700 mb-4">
-                        Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.
-                    </p>
+                    <p className="text-gray-700 mb-4">Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.</p>
                     <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
                         <p>Your Payment ID is:</p>
                         <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
@@ -557,7 +511,7 @@ const Register: React.FC = () => {
             case 2: return <Step2_TeamDetails formData={formData} handleInputChange={handleInputChange} handleInterestToggle={handleInterestToggle} />;
             case 3: return <Step3_TeamRoster formData={formData} handleMemberChange={handleMemberChange} />;
             case 4: return <Step4_Social hasFollowed={hasFollowedInstagram} setHasFollowed={setHasFollowedInstagram} />;
-            case 5: return <Step5_Payment formData={formData} handleInputChange={handleInputChange} postPaymentError={postPaymentError} validationError={validationError} />;
+            case 5: return <Step5_Payment formData={formData} handleInputChange={handleInputChange} postPaymentError={postPaymentError} validationError={validationError} calculateTotal={calculateTotal} />;
             default: return null;
         }
     };
@@ -614,7 +568,7 @@ const Register: React.FC = () => {
                     {currentStep < 5 ? (
                         <button onClick={nextStep} disabled={!isStepValid()} className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next<ChevronRight className="w-5 h-5 ml-2" /></button>
                     ) : (
-                        <button onClick={handlePayment} disabled={!formData.agreedToRules || isLoading || !isCashfreeReady} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60">
+                        <button onClick={handlePayment} disabled={!isStepValid() || isLoading || !isCashfreeReady} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60">
                             {isLoading ? (<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>)
                                 : !isCashfreeReady ? ('Initializing...')
                                     : (<>Proceed to Payment<CreditCard className="w-5 h-5 ml-2" /></>)}
@@ -639,5 +593,3 @@ const Register: React.FC = () => {
 };
 
 export default Register;
-
- 
