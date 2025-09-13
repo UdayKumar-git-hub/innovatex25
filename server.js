@@ -1,37 +1,30 @@
-// --- Backend Server Example (e.g., server.js) ---
-// You would need to run `npm install express node-fetch cors` for this.
+// File: server.js
+// --- Dependencies ---
+// Run `npm install express node-fetch cors` to install these.
 
 const express = require('express');
 const fetch = require('node-fetch');
-const cors = require('cors'); // Import the CORS middleware
+const cors = require('cors');
+
 const app = express();
 
-// ==================================================================
-// MIDDLEWARE SETUP
-// ==================================================================
-app.use(express.json());
+// --- Middleware ---
+app.use(express.json()); // To parse JSON request bodies
+app.use(cors());         // To allow requests from your frontend
 
-// Use the CORS middleware. This will allow your React frontend 
-// (running on a different origin, e.g., localhost:3000) 
-// to make requests to this backend server (e.g., localhost:3001).
-app.use(cors());
-
-
-// ==================================================================
-// CONFIGURATION
-// ==================================================================
-// IMPORTANT: Store these securely as environment variables, not hardcoded.
+// --- Configuration ---
+// ⚠️ CRITICAL: For production, use environment variables, not hardcoded keys!
+// Example: const CASHFREE_CLIENT_ID = process.env.CASHFREE_CLIENT_ID;
 const CASHFREE_CLIENT_ID = '10740233429ec59b4bde3effd3f3204701';
 const CASHFREE_CLIENT_SECRET = 'cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d';
-// Use 'https://api.cashfree.com/pg/orders' for production environment
-const CASHFREE_API_URL = 'https://sandbox.cashfree.com/pg/orders'; 
 
+// Use 'https://api.cashfree.com/pg/orders' for production
+const CASHFREE_API_URL = 'https://sandbox.cashfree.com/pg/orders';
 
-// ==================================================================
-// API ENDPOINT
-// ==================================================================
+// --- API Endpoint ---
 app.post('/api/create-cashfree-order', async (req, res) => {
     try {
+        // Data sent from the React frontend
         const { order_amount, order_id, customer_details } = req.body;
 
         const response = await fetch(CASHFREE_API_URL, {
@@ -48,8 +41,9 @@ app.post('/api/create-cashfree-order', async (req, res) => {
                 order_currency: 'INR',
                 customer_details: customer_details,
                 order_meta: {
-                    // You can add additional info here if needed
-                    return_url: `https://your-domain.com/order-status?order_id=${order_id}`
+                    // This URL is where the user is sent after some payments.
+                    // You must build a page to handle this and verify the payment status.
+                    return_url: `https://YOUR_LIVE_WEBSITE.com/order-status?order_id=${order_id}`
                 }
             }),
         });
@@ -61,15 +55,15 @@ app.post('/api/create-cashfree-order', async (req, res) => {
             return res.status(response.status).json({ error: data.message || 'An error occurred with the payment provider.' });
         }
         
-        // Send the payment_session_id back to the frontend
+        // Success! Send the session ID back to the frontend.
         res.status(200).json({ payment_session_id: data.payment_session_id });
 
     } catch (error) {
-        console.error('Error creating Cashfree order:', error);
-        res.status(500).send('Internal Server Error');
+        console.error('Internal Server Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
+// --- Start Server ---
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+app.listen(PORT, () => console.log(`✅ Server is running on port ${PORT}`));
