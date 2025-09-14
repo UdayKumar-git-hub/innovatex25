@@ -40,7 +40,7 @@ interface FormData {
 
 // For TypeScript to recognize the Cashfree and Supabase objects on the window
 interface CustomWindow extends Window {
-    cashfree: any; // Changed from Razorpay to cashfree
+    cashfree: any;
     supabase: any;
 }
 
@@ -84,15 +84,17 @@ const Register: React.FC = () => {
     supabaseScript.async = true;
 
     supabaseScript.onload = () => {
-      const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
-      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
+      // Hardcoded for compatibility with the build environment.
+      // In a standard Vite/React project, you would use import.meta.env or process.env
+      const supabaseUrl = "https://ytjnonkfkhcpkijhvlqi.supabase.co";
+      const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE";
 
       if (supabaseUrl && supabaseAnonKey && window.supabase) {
         const { createClient } = window.supabase;
         setSupabase(createClient(supabaseUrl, supabaseAnonKey));
         console.log("Supabase client initialized successfully.");
       } else {
-        console.warn("Supabase credentials are not provided or the script failed to load. Database operations will be disabled.");
+        console.error("Supabase credentials could not be loaded. Database operations will be disabled.");
       }
     };
     document.body.appendChild(supabaseScript);
@@ -191,61 +193,35 @@ const Register: React.FC = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
-  // --- ⚠️ IMPORTANT: BACKEND FUNCTION REQUIRED ---
-  // You must create this function on a secure backend (e.g., Netlify/Vercel Serverless Function).
-  // This function will take the order details and securely call the Cashfree API to create a payment session.
-  // This prevents your secret key from being exposed in the frontend code.
-  const createCashfreeOrder = async (orderAmount: string, orderId: string) => {
-    // In a real app, this would be an API call to your own backend:
-    // const response = await fetch('/api/create-cashfree-order', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ orderAmount, orderId, customerDetails: ... }),
-    // });
-    // const data = await response.json();
-    // return data;
-
-    // --- PSEUDO-CODE FOR YOUR BACKEND FUNCTION (/api/create-cashfree-order.js) ---
-    /*
-    export default async function handler(req, res) {
-      const { orderAmount, orderId, customerDetails } = req.body;
-      
-      const options = {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'x-api-version': '2023-08-01',
-          'content-type': 'application/json',
-          'x-client-id': process.env.VITE_CASHFREE_APP_ID,
-          'x-client-secret': process.env.CASHFREE_SECRET_KEY, // <-- SECRET KEY ON SERVER ONLY
-        },
-        body: JSON.stringify({
-          order_id: orderId,
-          order_amount: parseFloat(orderAmount),
-          order_currency: 'INR',
-          customer_details: customerDetails,
-          order_meta: {
-            return_url: `https://YOUR_WEBSITE.com/payment-status?order_id={order_id}`,
-          },
-        }),
-      };
-
-      try {
-        const response = await fetch('https://api.cashfree.com/pg/orders', options);
-        const data = await response.json();
-        res.status(200).json(data);
-      } catch (error) {
-        res.status(500).json({ error: error.message });
-      }
+  // This function now calls your secure backend endpoint to create a payment session.
+  const createCashfreeOrder = async (orderData: { order_amount: number, order_id: string, customer_details: any }) => {
+    // In a real production app, this would come from environment variables.
+    const apiUrl = 'http://localhost:3001';
+    if (!apiUrl) {
+      console.error("API URL is not configured.");
+      throw new Error("API URL is not configured. Cannot create order.");
     }
-    */
 
-    // This is a placeholder for demonstration. Replace with your actual backend call.
-    console.warn("SIMULATION: Calling backend to create Cashfree order...");
-    // You would fetch from your own endpoint which securely calls Cashfree.
-    // For this example to work, you need to implement the backend logic above.
-    // I am returning a dummy object here.
-    return { payment_session_id: "dummy_session_id_replace_with_real_one" };
+    try {
+      const response = await fetch(`${apiUrl}/api/create-cashfree-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Use the error message from the server, or a default one
+        throw new Error(data.error || 'Failed to create payment session.');
+      }
+
+      return data; // Should contain { payment_session_id: '...' }
+    } catch (error) {
+      console.error("Error calling backend to create Cashfree order:", error);
+      // Re-throw the error so it can be caught by handlePayment
+      throw error;
+    }
   };
 
 
@@ -266,18 +242,20 @@ const Register: React.FC = () => {
 
     try {
       const paymentDetails = calculateTotal();
-      const orderAmount = paymentDetails.total.toFixed(2);
-      const orderId = `INNOVATEX-${Date.now()}`; // Unique order ID
       
-      const customerDetails = {
-        customer_id: `CUST-${Date.now()}`,
-        customer_email: formData.members[0].email,
-        customer_phone: formData.members[0].phoneNumber,
-        customer_name: formData.members[0].fullName,
+      const orderData = {
+          order_amount: parseFloat(paymentDetails.total.toFixed(2)),
+          order_id: `INNOVATEX-${Date.now()}`,
+          customer_details: {
+            customer_id: `CUST-${Date.now()}`,
+            customer_email: formData.members[0].email,
+            customer_phone: formData.members[0].phoneNumber,
+            customer_name: formData.members[0].fullName,
+          }
       };
 
       // 1. Create a payment session from your backend
-      const sessionResponse = await createCashfreeOrder(orderAmount, orderId);
+      const sessionResponse = await createCashfreeOrder(orderData);
       const { payment_session_id } = sessionResponse;
 
       if (!payment_session_id) {
@@ -354,8 +332,6 @@ const Register: React.FC = () => {
         paymentSessionId: payment_session_id,
         ...dropinConfig
       });
-      // The checkout method is now asynchronous and returns a promise for Drop-in.
-      // The callbacks `onSuccess` and `onFailure` handle the result.
 
     } catch (error: any) {
       console.error("Error during payment initiation:", error);
@@ -694,13 +670,13 @@ const Register: React.FC = () => {
                   <div className="space-y-6">
                     {postPaymentError && (
                          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
-                           <div className='flex'>
-                             <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
-                             <div>
-                               <p className="font-bold">Payment Error</p>
-                               <p>{postPaymentError}</p>
-                             </div>
+                          <div className='flex'>
+                           <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
+                           <div>
+                             <p className="font-bold">Payment Error</p>
+                             <p>{postPaymentError}</p>
                            </div>
+                          </div>
                          </div>
                     )}
                     <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
@@ -824,3 +800,4 @@ const Register: React.FC = () => {
 }; 
 
 export default Register;
+
