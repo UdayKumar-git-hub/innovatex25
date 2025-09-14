@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { loadCashfreeSDK, createPaymentOrder, checkBackendHealth } from '../utils/paymentService';
 import {
   Users,
   Trophy,
@@ -21,6 +20,60 @@ import {
   Instagram
 } from 'lucide-react';
 
+// --- Helper Functions ---
+// NOTE: Backend calls are now mocked to allow for frontend testing without a live server.
+
+/**
+ * Dynamically loads the Cashfree SDK script.
+ * @returns {Promise<boolean>} A promise that resolves when the script is loaded.
+ */
+const loadCashfreeSDK = (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    if (document.getElementById('cashfree-sdk')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'cashfree-sdk';
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error('Cashfree SDK failed to load.'));
+    document.body.appendChild(script);
+  });
+};
+
+/**
+ * MOCKS a check to the backend server.
+ * @returns {Promise<boolean>} A promise that resolves to true after a short delay.
+ */
+const checkBackendHealth = async (): Promise<boolean> => {
+  console.log("Mocking backend health check...");
+  return new Promise(resolve => {
+    setTimeout(() => {
+      console.log("Backend is 'online'.");
+      resolve(true);
+    }, 500); // Simulate network delay
+  });
+};
+
+/**
+ * MOCKS the creation of a Cashfree payment order from the backend.
+ * @param {any} orderData - The data required to create the order.
+ * @returns {Promise<any>} A promise that resolves with a mock payment session ID.
+ */
+const createPaymentOrder = async (orderData: any): Promise<any> => {
+  console.log("Mocking payment order creation with data:", orderData);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const mockSessionId = `session_mock_${Date.now()}`;
+      console.log("Generated mock payment session ID:", mockSessionId);
+      resolve({ payment_session_id: mockSessionId });
+    }, 1000); // Simulate network delay
+  });
+};
+
+
+// --- Component Interfaces ---
 interface TeamMember {
   fullName: string;
   grade: string;
@@ -39,16 +92,17 @@ interface FormData {
   agreedToRules: boolean;
 }
 
+// --- Main Component ---
 const Register: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  const [registrationComplete, setRegistrationComplete] = useState(false);
-  const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
-  const [postPaymentError, setPostPaymentError] = useState('');
-  const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-  const [formData, setFormData] = useState<FormData>({
+  const [currentStep, setCurrentStep] = React.useState(1);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [validationError, setValidationError] = React.useState('');
+  const [registrationComplete, setRegistrationComplete] = React.useState(false);
+  const [finalPaymentInfo, setFinalPaymentInfo] = React.useState({ teamName: '', paymentId: '' });
+  const [postPaymentError, setPostPaymentError] = React.useState('');
+  const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
+  const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
+  const [formData, setFormData] = React.useState<FormData>({
     teamName: '',
     teamSize: 2,
     challenges: ['ipl', 'brand', 'innovators', 'echoes'],
@@ -64,16 +118,14 @@ const Register: React.FC = () => {
     agreedToRules: false
   });
 
-  useEffect(() => {
-    // Check backend status and load Cashfree SDK
+  React.useEffect(() => {
+    // Check backend status and load Cashfree SDK on component mount
     const initializeServices = async () => {
       try {
-        // Check if backend is running
         const isBackendOnline = await checkBackendHealth();
         setBackendStatus(isBackendOnline ? 'online' : 'offline');
         
         if (isBackendOnline) {
-          // Load Cashfree SDK
           await loadCashfreeSDK();
           console.log('Cashfree SDK loaded successfully');
         }
@@ -110,6 +162,7 @@ const Register: React.FC = () => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
 
+    // Auto-fill grade for all members based on team leader's grade
     if (index === 0 && field === 'grade') {
       for (let i = 1; i < formData.teamSize; i++) {
         newMembers[i] = { ...newMembers[i], grade: value };
@@ -153,7 +206,7 @@ const Register: React.FC = () => {
     setPostPaymentError('');
     setIsLoading(true);
 
-    if (!window.Cashfree) {
+    if (!(window as any).Cashfree) {
       setValidationError("Payment gateway failed to load. Please refresh and try again.");
       setIsLoading(false);
       return;
@@ -173,20 +226,17 @@ const Register: React.FC = () => {
           }
       };
 
-      // 1. Create a payment session from your backend
       const sessionResponse = await createPaymentOrder(orderData);
       const { payment_session_id } = sessionResponse;
 
       if (!payment_session_id) {
-          throw new Error("Failed to create payment session. Please check backend logs.");
+        throw new Error("Failed to create payment session. Please check backend logs.");
       }
 
-      // 2. Initialize the Cashfree SDK
-      const cashfree = new window.Cashfree.Checkout({
-        mode: 'sandbox' // Change to 'production' for live environment
+      const cashfree = new (window as any).Cashfree.Checkout({
+        mode: 'production' // Set to 'production' for live payments
       });
 
-      // 3. Define the checkout configuration
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
         onSuccess: async (data: any) => {
@@ -206,8 +256,7 @@ const Register: React.FC = () => {
                 payment_id: paymentId,
                 total_amount: paymentDetails.total
               };
-
-              // For now, just store in localStorage (replace with actual database call)
+              
               localStorage.setItem('registrationData', JSON.stringify(registrationData));
               console.log('Registration data saved:', registrationData);
               
@@ -238,7 +287,6 @@ const Register: React.FC = () => {
         }
       };
 
-      // 4. Open the Cashfree checkout modal
       cashfree.checkout({
         paymentSessionId: payment_session_id,
         ...dropinConfig
@@ -275,13 +323,15 @@ const Register: React.FC = () => {
   };
 
   const nextStep = () => {
-    if (currentStep < 5 && isStepValid()) setCurrentStep(currentStep + 1);
+    if (isStepValid()) {
+        if(currentStep < 5) setCurrentStep(currentStep + 1);
+    }
   };
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
-  
+ 
   if (registrationComplete) {
       return (
           <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
@@ -321,7 +371,7 @@ const Register: React.FC = () => {
           </div>
           <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
           <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
-          
+         
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
             {backendStatus === 'checking' && (
               <div className="mb-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
@@ -384,7 +434,7 @@ const Register: React.FC = () => {
                   <Users className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Identity
                 </h2>
-                
+               
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -507,7 +557,7 @@ const Register: React.FC = () => {
                   <User className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Roster
                 </h2>
-                 <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+                  <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
 
                 <div className="space-y-8">
                   {Array.from({ length: formData.teamSize }, (_, index) => (
@@ -515,7 +565,7 @@ const Register: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">
                         Member {index + 1} {index === 0 && '(Team Leader)'}
                       </h3>
-                      
+                     
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -630,8 +680,8 @@ const Register: React.FC = () => {
                           <div className='flex'>
                            <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
                            <div>
-                             <p className="font-bold">Payment Error</p>
-                             <p>{postPaymentError}</p>
+                            <p className="font-bold">Payment Error</p>
+                            <p>{postPaymentError}</p>
                            </div>
                           </div>
                          </div>
