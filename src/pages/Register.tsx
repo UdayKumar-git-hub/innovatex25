@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { loadCashfreeSDK, createPaymentOrder, checkBackendHealth } from '../utils/paymentService';
 import {
   Users,
   Trophy,
@@ -38,23 +39,15 @@ interface FormData {
   agreedToRules: boolean;
 }
 
-// For TypeScript to recognize the Cashfree and Supabase objects on the window
-interface CustomWindow extends Window {
-    cashfree: any;
-    supabase: any;
-}
-
-declare const window: CustomWindow;
-
 const Register: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [supabase, setSupabase] = useState<any>(null);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
   const [postPaymentError, setPostPaymentError] = useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [formData, setFormData] = useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -72,41 +65,25 @@ const Register: React.FC = () => {
   });
 
   useEffect(() => {
-    // Load Cashfree Script
-    const cashfreeScript = document.createElement('script');
-    cashfreeScript.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    cashfreeScript.async = true;
-    document.body.appendChild(cashfreeScript);
-
-    // Load Supabase Script
-    const supabaseScript = document.createElement('script');
-    supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    supabaseScript.async = true;
-
-    supabaseScript.onload = () => {
-      // Hardcoded for compatibility with the build environment.
-      // In a standard Vite/React project, you would use import.meta.env or process.env
-      const supabaseUrl = "https://ytjnonkfkhcpkijhvlqi.supabase.co";
-      const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE";
-
-      if (supabaseUrl && supabaseAnonKey && window.supabase) {
-        const { createClient } = window.supabase;
-        setSupabase(createClient(supabaseUrl, supabaseAnonKey));
-        console.log("Supabase client initialized successfully.");
-      } else {
-        console.error("Supabase credentials could not be loaded. Database operations will be disabled.");
+    // Check backend status and load Cashfree SDK
+    const initializeServices = async () => {
+      try {
+        // Check if backend is running
+        const isBackendOnline = await checkBackendHealth();
+        setBackendStatus(isBackendOnline ? 'online' : 'offline');
+        
+        if (isBackendOnline) {
+          // Load Cashfree SDK
+          await loadCashfreeSDK();
+          console.log('Cashfree SDK loaded successfully');
+        }
+      } catch (error) {
+        console.error('Failed to initialize services:', error);
+        setBackendStatus('offline');
       }
     };
-    document.body.appendChild(supabaseScript);
 
-    return () => {
-      if (document.body.contains(cashfreeScript)) {
-        document.body.removeChild(cashfreeScript);
-      }
-      if (document.body.contains(supabaseScript)) {
-        document.body.removeChild(supabaseScript);
-      }
-    }
+    initializeServices();
   }, []);
 
   const challenges = [
@@ -162,6 +139,118 @@ const Register: React.FC = () => {
     return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
   };
 
+  const handlePayment = async () => {
+    if (backendStatus !== 'online') {
+      setValidationError("Backend service is not available. Please try again later.");
+      return;
+    }
+
+    if (!isStepValid()) {
+      setValidationError("Please ensure you've agreed to the rules before proceeding.");
+      return;
+    }
+    setValidationError('');
+    setPostPaymentError('');
+    setIsLoading(true);
+
+    if (!window.Cashfree) {
+      setValidationError("Payment gateway failed to load. Please refresh and try again.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const paymentDetails = calculateTotal();
+      
+      const orderData = {
+          order_amount: parseFloat(paymentDetails.total.toFixed(2)),
+          order_id: `INNOVATEX-${Date.now()}`,
+          customer_details: {
+            customer_id: `CUST-${Date.now()}`,
+            customer_email: formData.members[0].email,
+            customer_phone: formData.members[0].phoneNumber,
+            customer_name: formData.members[0].fullName,
+          }
+      };
+
+      // 1. Create a payment session from your backend
+      const sessionResponse = await createPaymentOrder(orderData);
+      const { payment_session_id } = sessionResponse;
+
+      if (!payment_session_id) {
+          throw new Error("Failed to create payment session. Please check backend logs.");
+      }
+
+      // 2. Initialize the Cashfree SDK
+      const cashfree = new window.Cashfree.Checkout({
+        mode: 'sandbox' // Change to 'production' for live environment
+      });
+
+      // 3. Define the checkout configuration
+      const dropinConfig = {
+        components: ["order-details", "card", "upi", "netbanking"],
+        onSuccess: async (data: any) => {
+          if (data.order && data.order.status === 'PAID') {
+            console.log('Cashfree Payment Successful:', data);
+            const paymentId = data.order.payment_id;
+
+            try {
+              const registrationData = {
+                team_name: formData.teamName,
+                team_size: formData.teamSize,
+                grade: formData.members[0].grade,
+                interests: formData.interests,
+                other_interest: formData.otherInterest,
+                superpower: formData.superpower,
+                members: formData.members.slice(0, formData.teamSize),
+                payment_id: paymentId,
+                total_amount: paymentDetails.total
+              };
+
+              // For now, just store in localStorage (replace with actual database call)
+              localStorage.setItem('registrationData', JSON.stringify(registrationData));
+              console.log('Registration data saved:', registrationData);
+              
+              setFinalPaymentInfo({
+                teamName: formData.teamName,
+                paymentId: paymentId
+              });
+              setRegistrationComplete(true);
+
+            } catch (error: any) {
+              console.error('CRITICAL: Error saving registration after payment:', error);
+              setPostPaymentError(
+                `Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support immediately with this Payment ID.`
+              );
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        },
+        onFailure: (data: any) => {
+          console.error('Cashfree Payment Failed:', data);
+          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
+          setIsLoading(false);
+        },
+        style: {
+          theme: "light",
+          color: "#FBBF24"
+        }
+      };
+
+      // 4. Open the Cashfree checkout modal
+      cashfree.checkout({
+        paymentSessionId: payment_session_id,
+        ...dropinConfig
+      });
+
+    } catch (error: any) {
+      console.error("Error during payment initiation:", error);
+      setValidationError(error.message || "Could not connect to the payment gateway.");
+      setIsLoading(false);
+    }
+  };
+
   const isStepValid = () => {
     switch (currentStep) {
       case 1:
@@ -191,153 +280,6 @@ const Register: React.FC = () => {
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
-
-  // This function now calls your secure backend endpoint to create a payment session.
-  const createCashfreeOrder = async (orderData: { order_amount: number, order_id: string, customer_details: any }) => {
-    // In a real production app, this would come from environment variables.
-    const apiUrl = 'http://localhost:3001';
-    if (!apiUrl) {
-      console.error("API URL is not configured.");
-      throw new Error("API URL is not configured. Cannot create order.");
-    }
-
-    try {
-      const response = await fetch(`${apiUrl}/api/create-cashfree-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Use the error message from the server, or a default one
-        throw new Error(data.error || 'Failed to create payment session.');
-      }
-
-      return data; // Should contain { payment_session_id: '...' }
-    } catch (error) {
-      console.error("Error calling backend to create Cashfree order:", error);
-      // Re-throw the error so it can be caught by handlePayment
-      throw error;
-    }
-  };
-
-
-  const handlePayment = async () => {
-    if (!isStepValid()) {
-      setValidationError("Please ensure you've agreed to the rules before proceeding.");
-      return;
-    }
-    setValidationError('');
-    setPostPaymentError('');
-    setIsLoading(true);
-
-    if (!window.cashfree) {
-      setValidationError("Payment gateway failed to load. Please refresh and try again.");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const paymentDetails = calculateTotal();
-      
-      const orderData = {
-          order_amount: parseFloat(paymentDetails.total.toFixed(2)),
-          order_id: `INNOVATEX-${Date.now()}`,
-          customer_details: {
-            customer_id: `CUST-${Date.now()}`,
-            customer_email: formData.members[0].email,
-            customer_phone: formData.members[0].phoneNumber,
-            customer_name: formData.members[0].fullName,
-          }
-      };
-
-      // 1. Create a payment session from your backend
-      const sessionResponse = await createCashfreeOrder(orderData);
-      const { payment_session_id } = sessionResponse;
-
-      if (!payment_session_id) {
-          throw new Error("Failed to create payment session. Please check backend logs.");
-      }
-
-      // 2. Initialize the Cashfree SDK
-      const cashfree = new window.cashfree();
-
-      // 3. Define the checkout configuration
-      const dropinConfig = {
-        components: ["order-details", "card", "upi", "netbanking"],
-        onSuccess: async (data: any) => {
-          if (data.order && data.order.status === 'PAID') {
-            console.log('Cashfree Payment Successful:', data);
-            const paymentId = data.order.payment_id;
-
-            try {
-              const registrationData = {
-                team_name: formData.teamName,
-                team_size: formData.teamSize,
-                grade: formData.members[0].grade,
-                interests: formData.interests,
-                other_interest: formData.otherInterest,
-                superpower: formData.superpower,
-                members: formData.members.slice(0, formData.teamSize),
-                payment_id: paymentId,
-                total_amount: paymentDetails.total
-              };
-
-              if (!supabase) {
-                throw new Error("Supabase is not connected. Please check credentials.");
-              }
-
-              const { data: dbData, error } = await supabase
-                .from('registrations')
-                .insert([registrationData])
-                .select();
-
-              if (error) {
-                throw error;
-              }
-
-              console.log('Successfully saved to Supabase:', dbData);
-              setFinalPaymentInfo({
-                teamName: formData.teamName,
-                paymentId: paymentId
-              });
-              setRegistrationComplete(true);
-
-            } catch (error: any) {
-              console.error('CRITICAL: Error saving to Supabase after payment:', error);
-              setPostPaymentError(
-                `Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`
-              );
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        },
-        onFailure: (data: any) => {
-          console.error('Cashfree Payment Failed:', data);
-          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
-          setIsLoading(false);
-        },
-        style: {
-          theme: "light",
-          color: "#FBBF24"
-        }
-      };
-
-      // 4. Open the Cashfree checkout modal
-      cashfree.checkout({
-        paymentSessionId: payment_session_id,
-        ...dropinConfig
-      });
-
-    } catch (error: any) {
-      console.error("Error during payment initiation:", error);
-      setValidationError(error.message || "Could not connect to the payment gateway.");
-      setIsLoading(false);
-    }
   };
   
   if (registrationComplete) {
@@ -381,6 +323,21 @@ const Register: React.FC = () => {
           <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
           
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
+            {backendStatus === 'checking' && (
+              <div className="mb-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
+                <p className="text-blue-800 text-sm">🔄 Checking backend services...</p>
+              </div>
+            )}
+            {backendStatus === 'offline' && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                <p className="text-red-800 text-sm">⚠️ Backend services are currently unavailable. Please try again later.</p>
+              </div>
+            )}
+            {backendStatus === 'online' && (
+              <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg">
+                <p className="text-green-800 text-sm">✅ All systems ready!</p>
+              </div>
+            )}
             <p className="text-gray-700 leading-relaxed">
               Hey Innovators! Get ready for an epic experience where your ideas can shine. 
               InnovateX25 is your chance to team up with friends, tackle fun challenges, and show everyone what you've got!
@@ -766,7 +723,7 @@ const Register: React.FC = () => {
           ) : (
             <button
               onClick={handlePayment}
-              disabled={!formData.agreedToRules || isLoading}
+              disabled={!formData.agreedToRules || isLoading || backendStatus !== 'online'}
               className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60"
             >
               {isLoading ? (
@@ -774,6 +731,9 @@ const Register: React.FC = () => {
               ) : (
                   <>
                       Proceed to Payment
+                      {backendStatus !== 'online' && (
+                        <span className="ml-2 text-xs">(Service Unavailable)</span>
+                      )}
                       <CreditCard className="w-5 h-5 ml-2" />
                   </>
               )}
