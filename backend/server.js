@@ -2,19 +2,18 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config(); // Make sure to load environment variables
+require('dotenv').config();
 
 const app = express();
 
 // --- Middleware ---
-app.use(express.json()); // To parse JSON request bodies
+app.use(express.json());
 
 // --- CORS Configuration ---
-// This is a more robust CORS setup that explicitly allows your frontend URL.
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 const corsOptions = {
   origin: frontendUrl,
-  optionsSuccessStatus: 200 // For legacy browser support
+  optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 console.log(`Accepting requests from: ${frontendUrl}`);
@@ -22,7 +21,7 @@ console.log(`Accepting requests from: ${frontendUrl}`);
 // --- Configuration ---
 const CASHFREE_CLIENT_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY;
-const CASHFREE_API_ENV = process.env.CASHFREE_API_ENV || 'sandbox'; // Default to sandbox
+const CASHFREE_API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
 
 const CASHFREE_API_URL = CASHFREE_API_ENV === 'production'
   ? 'https://api.cashfree.com/pg/orders'
@@ -31,8 +30,6 @@ const CASHFREE_API_URL = CASHFREE_API_ENV === 'production'
 console.log(`Using Cashfree API URL: ${CASHFREE_API_URL}`);
 
 // --- API Endpoints ---
-
-// Health Check Endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'UP', message: 'Server is healthy' });
 });
@@ -41,7 +38,6 @@ app.post('/api/create-cashfree-order', async (req, res) => {
     try {
         const { order_amount, order_id, customer_details } = req.body;
 
-        // Basic validation
         if (!order_amount || !order_id || !customer_details) {
             return res.status(400).json({ error: 'Missing required order details.' });
         }
@@ -54,7 +50,7 @@ app.post('/api/create-cashfree-order', async (req, res) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-version': '2022-09-01',
+                'x-api-version': '2023-08-01', // <-- THE FIX IS HERE
                 'x-client-id': CASHFREE_CLIENT_ID,
                 'x-client-secret': CASHFREE_CLIENT_SECRET,
             },
@@ -72,8 +68,8 @@ app.post('/api/create-cashfree-order', async (req, res) => {
         const data = await response.json();
 
         if (!response.ok || data.type === 'error') {
-            console.error('Cashfree API Error:', data.message);
-            return res.status(response.status).json({ error: data.message || 'An error occurred with the payment provider.' });
+            console.error('Cashfree API Error:', data);
+            return res.status(response.status).json(data);
         }
         
         res.status(200).json({ payment_session_id: data.payment_session_id });
@@ -87,3 +83,4 @@ app.post('/api/create-cashfree-order', async (req, res) => {
 // --- Start Server ---
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`✅ Server is running on port ${PORT}`));
+
