@@ -25,8 +25,8 @@ import {
 
 /**
  * Dynamically and robustly loads the Cashfree SDK script.
- * It waits for the script to load and then polls for the `window.cashfree` object
- * to ensure the SDK is fully initialized before proceeding.
+ * It adds the script to the page and then polls for the `window.cashfree` object,
+ * ensuring the SDK is fully initialized before proceeding.
  * @returns {Promise<boolean>} A promise that resolves when the script is successfully loaded.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
@@ -45,49 +45,39 @@ const loadCashfreeSDK = (): Promise<boolean> => {
     const script = document.createElement('script');
     script.id = 'cashfree-sdk';
     script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    
+    // Append the script to the body to start loading it.
+    document.body.appendChild(script);
 
     const timeoutDuration = 10000; // 10 seconds
     const pollInterval = 100; // 100 ms
-    let pollTimer: number;
+    let elapsedTime = 0;
 
-    // Cleanup function to remove listeners and timers
-    const cleanup = () => {
-      clearInterval(pollTimer);
-      script.removeEventListener('load', handleLoad);
-      script.removeEventListener('error', handleError);
-    };
-
-    // Polling function to check for the SDK object
-    const pollForSDK = () => {
-      let elapsedTime = 0;
-      pollTimer = window.setInterval(() => {
-        if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-          cleanup();
-          resolve(true);
-        } else {
-          elapsedTime += pollInterval;
-          if (elapsedTime >= timeoutDuration) {
-            cleanup();
-            reject(new Error('Cashfree SDK did not initialize within the timeout period.'));
-          }
+    // Start polling immediately after appending the script.
+    const pollTimer = window.setInterval(() => {
+      // Check if the SDK's global object is now available.
+      if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
+        clearInterval(pollTimer);
+        script.removeEventListener('error', handleError); // Clean up error listener
+        resolve(true);
+      } else {
+        elapsedTime += pollInterval;
+        // If it takes too long, reject the promise.
+        if (elapsedTime >= timeoutDuration) {
+          clearInterval(pollTimer);
+          script.removeEventListener('error', handleError);
+          reject(new Error('Cashfree SDK did not initialize within the timeout period.'));
         }
-      }, pollInterval);
-    };
+      }
+    }, pollInterval);
 
-    const handleLoad = () => {
-      // Once the script is loaded, start polling for the object to be ready.
-      pollForSDK();
-    };
-
+    // Handle cases where the script itself fails to load (e.g., network error).
     const handleError = () => {
-      cleanup();
+      clearInterval(pollTimer);
       reject(new Error('Failed to load Cashfree SDK script. Check network connection or ad-blockers.'));
     };
 
-    script.addEventListener('load', handleLoad);
     script.addEventListener('error', handleError);
-    
-    document.body.appendChild(script);
   });
 };
 
