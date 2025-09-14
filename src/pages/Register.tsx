@@ -24,23 +24,73 @@ import {
 // NOTE: Backend calls are now mocked to allow for frontend testing without a live server.
 
 /**
- * Dynamically loads the Cashfree SDK script.
- * @returns {Promise<boolean>} A promise that resolves when the script is loaded.
+ * Dynamically and robustly loads the Cashfree SDK script.
+ * It waits for the script to load and then polls for the `window.cashfree` object
+ * to ensure the SDK is fully initialized before proceeding.
+ * @returns {Promise<boolean>} A promise that resolves when the script is successfully loaded.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    if (document.getElementById('cashfree-sdk')) {
-      resolve(true);
-      return;
+    // If SDK is already available, resolve immediately.
+    if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
+      return resolve(true);
     }
+
+    // To ensure reliability, especially with hot-reloading, remove any old script tag.
+    const existingScript = document.getElementById('cashfree-sdk');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
     const script = document.createElement('script');
     script.id = 'cashfree-sdk';
     script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error('Cashfree SDK failed to load.'));
+
+    const timeoutDuration = 10000; // 10 seconds
+    const pollInterval = 100; // 100 ms
+    let pollTimer: number;
+
+    // Cleanup function to remove listeners and timers
+    const cleanup = () => {
+      clearInterval(pollTimer);
+      script.removeEventListener('load', handleLoad);
+      script.removeEventListener('error', handleError);
+    };
+
+    // Polling function to check for the SDK object
+    const pollForSDK = () => {
+      let elapsedTime = 0;
+      pollTimer = window.setInterval(() => {
+        if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
+          cleanup();
+          resolve(true);
+        } else {
+          elapsedTime += pollInterval;
+          if (elapsedTime >= timeoutDuration) {
+            cleanup();
+            reject(new Error('Cashfree SDK did not initialize within the timeout period.'));
+          }
+        }
+      }, pollInterval);
+    };
+
+    const handleLoad = () => {
+      // Once the script is loaded, start polling for the object to be ready.
+      pollForSDK();
+    };
+
+    const handleError = () => {
+      cleanup();
+      reject(new Error('Failed to load Cashfree SDK script. Check network connection or ad-blockers.'));
+    };
+
+    script.addEventListener('load', handleLoad);
+    script.addEventListener('error', handleError);
+    
     document.body.appendChild(script);
   });
 };
+
 
 /**
  * MOCKS a check to the backend server.
@@ -145,6 +195,8 @@ const Register: React.FC = () => {
       } catch (error) {
         console.error('Failed to initialize services:', error);
         setBackendStatus('offline');
+        // Display a user-friendly error if the SDK fails to load
+        setValidationError((error as Error).message);
       }
     };
 
@@ -219,7 +271,7 @@ const Register: React.FC = () => {
     setPostPaymentError('');
     setIsLoading(true);
 
-    if (!(window as any).cashfree) {
+    if (typeof (window as any).cashfree !== 'object' || (window as any).cashfree === null) {
       setValidationError("Payment gateway failed to load. Please refresh and try again.");
       setIsLoading(false);
       return;
@@ -246,14 +298,13 @@ const Register: React.FC = () => {
         throw new Error("Failed to create payment session. Please check backend logs.");
       }
 
-      // FIX: Correctly initialize the Cashfree SDK object.
-      // The 'cashfree' object is attached to the window, and we initialize it here.
-      const cashfree = await new (window as any).cashfree.Cashfree();
+      const cashfree = new (window as any).cashfree.Cashfree();
       
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
-        paymentSessionId: payment_session_id, // Pass the session ID here
-        onSuccess: async (data: any) => {
+        paymentSessionId: payment_session_id,
+        returnUrl: window.location.href, // Good practice for some payment methods
+        onSuccess: (data: any) => {
           if (data.order && data.order.status === 'PAID') {
             console.log('Cashfree Payment Successful:', data);
             const paymentId = data.order.payment_id;
@@ -288,6 +339,10 @@ const Register: React.FC = () => {
             } finally {
               setIsLoading(false);
             }
+          } else {
+             // Handle cases where onSuccess is called but payment is not 'PAID'
+             setIsLoading(false);
+             setPostPaymentError("Payment status was not successful. Please check your account or contact support.");
           }
         },
         onFailure: (data: any) => {
@@ -301,8 +356,7 @@ const Register: React.FC = () => {
         }
       };
       
-      // FIX: Use the 'checkout' method on the initialized 'cashfree' object.
-      cashfree.checkout(dropinConfig);
+      cashfree.drop.render(dropinConfig);
 
     } catch (error: any) {
       console.error("Error during payment initiation:", error);
