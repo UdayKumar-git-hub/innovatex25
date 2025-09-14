@@ -1,146 +1,89 @@
-// File: server.js
-// --- Dependencies ---
+// File: backend/server.js
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config();
+require('dotenv').config(); // Make sure to load environment variables
 
 const app = express();
 
 // --- Middleware ---
-app.use(express.json());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
+app.use(express.json()); // To parse JSON request bodies
+
+// --- CORS Configuration ---
+// This is a more robust CORS setup that explicitly allows your frontend URL.
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const corsOptions = {
+  origin: frontendUrl,
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+app.use(cors(corsOptions));
+console.log(`Accepting requests from: ${frontendUrl}`);
 
 // --- Configuration ---
-const {
-  PORT,
-  CASHFREE_APP_ID,
-  CASHFREE_SECRET_KEY,
-  CASHFREE_API_ENV,
-  RETURN_URL
-} = process.env;
+const CASHFREE_CLIENT_ID = process.env.CASHFREE_APP_ID;
+const CASHFREE_CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY;
+const CASHFREE_API_ENV = process.env.CASHFREE_API_ENV || 'sandbox'; // Default to sandbox
 
-// Validate that critical environment variables are set
-if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
-  console.error("FATAL ERROR: Cashfree credentials are not defined in the .env file.");
-  console.error("Please copy .env.example to .env and fill in your Cashfree credentials.");
-  process.exit(1);
-}
+const CASHFREE_API_URL = CASHFREE_API_ENV === 'production'
+  ? 'https://api.cashfree.com/pg/orders'
+  : 'https://sandbox.cashfree.com/pg/orders';
 
-// Determine the correct API endpoint based on the environment
-const CASHFREE_API_BASE_URL = CASHFREE_API_ENV === 'production'
-  ? 'https://api.cashfree.com/pg'
-  : 'https://sandbox.cashfree.com/pg';
+console.log(`Using Cashfree API URL: ${CASHFREE_API_URL}`);
 
-const CASHFREE_API_URL = `${CASHFREE_API_BASE_URL}/orders`;
+// --- API Endpoints ---
 
-// --- Health Check Endpoint ---
+// Health Check Endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'InnovateX25 Backend API is running',
-    environment: CASHFREE_API_ENV || 'sandbox'
-  });
+    res.status(200).json({ status: 'UP', message: 'Server is healthy' });
 });
 
-// --- API Endpoint: Create Cashfree Order ---
 app.post('/api/create-cashfree-order', async (req, res) => {
     try {
-        console.log('Received order creation request:', req.body);
-        
-        // Data sent from the React frontend
         const { order_amount, order_id, customer_details } = req.body;
 
         // Basic validation
         if (!order_amount || !order_id || !customer_details) {
-            return res.status(400).json({ 
-              error: 'Missing required order details.',
-              required: ['order_amount', 'order_id', 'customer_details']
-            });
+            return res.status(400).json({ error: 'Missing required order details.' });
         }
-
-        // Validate customer details
-        if (!customer_details.customer_email || !customer_details.customer_phone || !customer_details.customer_name) {
-            return res.status(400).json({ 
-              error: 'Missing required customer details.',
-              required: ['customer_email', 'customer_phone', 'customer_name']
-            });
+        if (!CASHFREE_CLIENT_ID || !CASHFREE_CLIENT_SECRET) {
+            console.error('Cashfree credentials are not configured on the server.');
+            return res.status(500).json({ error: 'Payment gateway credentials are not configured.' });
         }
-
-        const orderPayload = {
-            order_id: order_id,
-            order_amount: parseFloat(order_amount),
-            order_currency: 'INR',
-            customer_details: {
-                customer_id: customer_details.customer_id || `CUST-${Date.now()}`,
-                customer_email: customer_details.customer_email,
-                customer_phone: customer_details.customer_phone,
-                customer_name: customer_details.customer_name
-            },
-            order_meta: {
-                return_url: RETURN_URL || `${process.env.FRONTEND_URL}/success?order_id=${order_id}`
-            }
-        };
-
-        console.log('Creating Cashfree order with payload:', orderPayload);
 
         const response = await fetch(CASHFREE_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-version': '2022-09-01',
-                'x-client-id': CASHFREE_APP_ID,
-                'x-client-secret': CASHFREE_SECRET_KEY,
+                'x-client-id': CASHFREE_CLIENT_ID,
+                'x-client-secret': CASHFREE_CLIENT_SECRET,
             },
-            body: JSON.stringify(orderPayload),
+            body: JSON.stringify({
+                order_id: order_id,
+                order_amount: order_amount,
+                order_currency: 'INR',
+                customer_details: customer_details,
+                order_meta: {
+                    return_url: `${process.env.RETURN_URL}?order_id=${order_id}`
+                }
+            }),
         });
 
         const data = await response.json();
-        console.log('Cashfree API response:', data);
 
         if (!response.ok || data.type === 'error') {
-            console.error('Cashfree API Error:', data);
-            return res.status(response.status || 400).json({ 
-              error: data.message || 'An error occurred with the payment provider.',
-              details: data
-            });
+            console.error('Cashfree API Error:', data.message);
+            return res.status(response.status).json({ error: data.message || 'An error occurred with the payment provider.' });
         }
         
-        // Success! Send the session ID back to the frontend.
-        console.log('Order created successfully:', data.payment_session_id);
-        res.status(200).json({ 
-          payment_session_id: data.payment_session_id,
-          order_id: data.order_id
-        });
+        res.status(200).json({ payment_session_id: data.payment_session_id });
 
     } catch (error) {
         console.error('Internal Server Error:', error);
-        res.status(500).json({ 
-          error: 'Internal Server Error',
-          message: error.message
-        });
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
-// --- Error handling middleware ---
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
-
-// --- 404 handler ---
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
 // --- Start Server ---
-const port = PORT || 3001;
-app.listen(port, () => {
-  console.log(`✅ InnovateX25 Backend Server is running on port ${port}`);
-  console.log(`🌍 Environment: ${CASHFREE_API_ENV || 'sandbox'}`);
-  console.log(`🔗 Health check: http://localhost:${port}/health`);
-  console.log(`💳 Payment API: http://localhost:${port}/api/create-cashfree-order`);
-});
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`✅ Server is running on port ${PORT}`));
