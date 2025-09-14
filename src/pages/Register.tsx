@@ -21,55 +21,21 @@ import {
 } from 'lucide-react';
 
 // --- Helper Functions ---
-// NOTE: Backend calls are MOCKED to allow for frontend testing without a live server.
 
-/**
- * Creates a mock Cashfree object for development when the real SDK fails to load.
- * This allows the UI flow to be tested without a live payment gateway. It will
- * simulate a successful payment after a short delay.
- */
-const createMockCashfree = () => {
-  console.warn(
-    'WARNING: Cashfree SDK failed to load. Using a mock payment object. NO REAL PAYMENTS WILL BE PROCESSED.'
-  );
-
-  // Create a dummy object that mimics the Cashfree SDK's structure
-  (window as any).cashfree = {
-    Cashfree: function() {
-      return {
-        drop: {
-          render: (config: any) => {
-            console.log('MOCK Cashfree: Rendering drop-in with config:', config);
-            
-            // Simulate a successful payment after a short delay
-            setTimeout(() => {
-              const mockPaymentData = {
-                order: {
-                  status: 'PAID',
-                  payment_id: `MOCK_PAY_${Date.now()}`,
-                },
-              };
-              console.log('MOCK Cashfree: Simulating successful payment...');
-              config.onSuccess(mockPaymentData);
-            }, 2000); // 2-second delay to simulate payment processing
-          },
-        },
-      };
-    },
-  };
-};
+// The base URL for your backend server is read from a frontend environment variable.
+// This syntax `process.env.REACT_APP_...` is standard for Create React App.
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 /**
  * Dynamically and robustly loads the Cashfree SDK script.
- * If the real SDK fails to load or initialize, it creates a mock version
- * to prevent the application from breaking during development.
- * @returns {Promise<{ success: boolean; mocked: boolean }>} A promise that resolves with the loading status.
+ * It now properly rejects the promise if the SDK fails to load or initialize.
+ * @returns {Promise<boolean>} A promise that resolves on success or rejects on failure.
  */
-const loadCashfreeSDK = (): Promise<{ success: boolean; mocked: boolean }> => {
-  return new Promise((resolve) => {
+const loadCashfreeSDK = (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
     // If SDK is already available, resolve immediately.
     if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-      return resolve({ success: true, mocked: false });
+      return resolve(true);
     }
 
     const existingScript = document.getElementById('cashfree-sdk');
@@ -88,65 +54,63 @@ const loadCashfreeSDK = (): Promise<{ success: boolean; mocked: boolean }> => {
       if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
         clearInterval(pollTimer);
         script.removeEventListener('error', handleError);
-        resolve({ success: true, mocked: false });
+        resolve(true);
       } else {
         elapsedTime += pollInterval;
         if (elapsedTime >= timeoutDuration) {
           clearInterval(pollTimer);
           script.removeEventListener('error', handleError);
-          // Instead of rejecting, create the mock and resolve
-          createMockCashfree();
-          resolve({ success: true, mocked: true });
+          reject(new Error('Cashfree SDK did not initialize. Please check for ad-blockers or network issues.'));
         }
       }
     }, pollInterval);
 
     const handleError = () => {
       clearInterval(pollTimer);
-      // Instead of rejecting, create the mock and resolve
-      createMockCashfree();
-      resolve({ success: true, mocked: true });
+      reject(new Error('Failed to load Cashfree SDK script. Check network connection or ad-blockers.'));
     };
 
     script.addEventListener('error', handleError);
   });
 };
 
-
 /**
- * MOCKS a check to the backend server.
- * @returns {Promise<boolean>} A promise that resolves to true after a short delay.
+ * Checks the health of the REAL backend server.
+ * @returns {Promise<boolean>} A promise that resolves to true if the backend is online.
  */
 const checkBackendHealth = async (): Promise<boolean> => {
-  console.log("Mocking backend health check...");
-  return new Promise(resolve => {
-    setTimeout(() => {
-      console.log("Backend is 'online'.");
-      resolve(true);
-    }, 500); // Simulate network delay
-  });
+  try {
+    const response = await fetch(`${API_URL}/api/health`);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.status === 'ok';
+  } catch (error) {
+    console.error("Backend health check failed:", error);
+    return false;
+  }
 };
 
-
-// --- IMPORTANT SECURITY NOTE ---
-// The function below is a MOCK. In a real application, this function would
-// make a `fetch` call to your own backend server.
 /**
- * MOCKS the creation of a Cashfree payment order from the backend.
+ * Creates a Cashfree payment order by calling the REAL backend server.
  * @param {any} orderData - The data required to create the order.
- * @returns {Promise<any>} A promise that resolves with a mock payment session ID.
+ * @returns {Promise<any>} A promise that resolves with the payment session data from the server.
  */
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-  console.log("Mocking payment order creation with data:", orderData);
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockSessionId = `session_mock_${Date.now()}`;
-      console.log("Generated mock payment session ID:", mockSessionId);
-      resolve({ payment_session_id: mockSessionId });
-    }, 1000); // Simulate network delay
+  const response = await fetch(`${API_URL}/api/create-payment-order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(orderData),
   });
-};
 
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to create payment order.');
+  }
+
+  return response.json();
+};
 
 // --- Component Interfaces ---
 interface TeamMember {
@@ -177,7 +141,6 @@ const Register: React.FC = () => {
   const [postPaymentError, setPostPaymentError] = React.useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
   const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
-  const [isPaymentMocked, setIsPaymentMocked] = React.useState(false); // State to track if payment is mocked
   const [formData, setFormData] = React.useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -201,14 +164,15 @@ const Register: React.FC = () => {
       setBackendStatus(isBackendOnline ? 'online' : 'offline');
 
       if (isBackendOnline) {
-        const sdkStatus = await loadCashfreeSDK();
-        if (sdkStatus.mocked) {
-            setIsPaymentMocked(true);
-            setValidationError('Could not load payment gateway. Switched to mock mode for UI testing.');
+        try {
+          await loadCashfreeSDK();
+          console.log('Cashfree SDK loaded successfully.');
+        } catch (error) {
+          console.error('Failed to initialize payment SDK:', error);
+          setValidationError((error as Error).message);
         }
-        console.log('Cashfree SDK loaded successfully (real or mock).');
       } else {
-        setValidationError('Could not connect to the server. Please try again later.');
+        setValidationError('Could not connect to the server. Please check your connection and try again.');
       }
     };
 
@@ -293,7 +257,6 @@ const Register: React.FC = () => {
       
       const orderData = {
           order_amount: parseFloat(paymentDetails.total.toFixed(2)),
-          order_id: `INNOVATEX-${Date.now()}`,
           customer_details: {
             customer_id: `CUST-${Date.now()}`,
             customer_email: formData.members[0].email,
@@ -306,7 +269,7 @@ const Register: React.FC = () => {
       const { payment_session_id } = sessionResponse;
 
       if (!payment_session_id) {
-        throw new Error("Failed to create payment session. Please check backend logs.");
+        throw new Error("Failed to create payment session from backend.");
       }
 
       const cashfree = new (window as any).cashfree.Cashfree();
@@ -314,12 +277,9 @@ const Register: React.FC = () => {
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
         paymentSessionId: payment_session_id,
-        returnUrl: window.location.href,
         onSuccess: (data: any) => {
           if (data.order && data.order.status === 'PAID') {
-            console.log('Cashfree Payment Successful:', data);
             const paymentId = data.order.payment_id;
-
             try {
               const registrationData = {
                 team_name: formData.teamName,
@@ -332,21 +292,11 @@ const Register: React.FC = () => {
                 payment_id: paymentId,
                 total_amount: paymentDetails.total
               };
-              
               localStorage.setItem('registrationData', JSON.stringify(registrationData));
-              console.log('Registration data saved:', registrationData);
-              
-              setFinalPaymentInfo({
-                teamName: formData.teamName,
-                paymentId: paymentId
-              });
+              setFinalPaymentInfo({ teamName: formData.teamName, paymentId: paymentId });
               setRegistrationComplete(true);
-
             } catch (error: any) {
-              console.error('CRITICAL: Error saving registration after payment:', error);
-              setPostPaymentError(
-                `Your payment was successful (ID: ${paymentId}), but we couldn't save your registration. Please contact support immediately with this Payment ID.`
-              );
+              setPostPaymentError(`Payment successful (ID: ${paymentId}), but failed to save registration. Please contact support.`);
             } finally {
               setIsLoading(false);
             }
@@ -356,20 +306,15 @@ const Register: React.FC = () => {
           }
         },
         onFailure: (data: any) => {
-          console.error('Cashfree Payment Failed:', data);
           setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
           setIsLoading(false);
         },
-        style: {
-          theme: "light",
-          color: "#FBBF24"
-        }
       };
       
-      cashfree.drop.render(dropinConfig);
+      // cashfree.drop.render() was the old method, changed to cashfree.drop()
+      cashfree.drop(document.getElementById("payment-form"), dropinConfig);
 
     } catch (error: any) {
-      console.error("Error during payment initiation:", error);
       setValidationError(error.message || "Could not connect to the payment gateway.");
       setIsLoading(false);
     }
@@ -504,241 +449,245 @@ const Register: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
           >
-            {currentStep === 1 && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <Users className="w-6 h-6 mr-3 text-yellow-500" />
-                  Your Team Identity
-                </h2>
-               
-                <div className="space-y-6">
+            {currentStep !== 5 && (
+              <>
+                {currentStep === 1 && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Awesome Team Name:
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.teamName}
-                      onChange={(e) => handleInputChange('teamName', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                      placeholder="Enter your team name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Your Team Size:
-                    </label>
-                    <div className="grid grid-cols-3 gap-4">
-                      {[2, 3, 4].map((size) => (
-                        <label key={size} className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.teamSize === size ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-400' : 'border-gray-300'}`}>
-                          <input
-                            type="radio"
-                            name="teamSize"
-                            value={size}
-                            checked={formData.teamSize === size}
-                            onChange={(e) => handleInputChange('teamSize', parseInt(e.target.value))}
-                            className="sr-only"
-                          />
-                          <span className="font-medium">Team of {size}</span>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                      <Users className="w-6 h-6 mr-3 text-yellow-500" />
+                      Your Team Identity
+                    </h2>
+                  
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Awesome Team Name:
                         </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <Star className="w-6 h-6 mr-3 text-yellow-500" />
-                  Tell Us About Your Team!
-                </h2>
-
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-4">
-                      All teams will compete in all challenges. Get ready!
-                    </label>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {challenges.map((challenge) => {
-                        const IconComponent = challenge.icon;
-                        return (
-                          <div key={challenge.id} className="flex items-start p-4 bg-gray-50/50 border border-gray-200 rounded-lg">
-                            <IconComponent className="w-5 h-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <div className="font-medium text-gray-800">{challenge.name}</div>
-                              <div className="text-sm text-gray-600">{challenge.description}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-4">
-                      What are your team's interests? (Check all that apply)
-                    </label>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      {interests.map((interest) => (
-                        <label key={interest} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.interests.includes(interest) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}>
-                           <input
-                            type="checkbox"
-                            checked={formData.interests.includes(interest)}
-                            onChange={() => handleInterestToggle(interest)}
-                            className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
-                          />
-                          <span className="ml-3 text-gray-700">{interest}</span>
-                        </label>
-                      ))}
-                      <div className="flex items-center p-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-yellow-500">
-                        <input
-                          type="checkbox"
-                          checked={formData.otherInterest !== ''}
-                          readOnly
-                          className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
-                        />
                         <input
                           type="text"
-                          value={formData.otherInterest}
-                          onChange={(e) => handleInputChange('otherInterest', e.target.value)}
-                          placeholder="Other..."
-                          className="ml-3 flex-1 bg-transparent border-none outline-none placeholder-gray-500"
+                          value={formData.teamName}
+                          onChange={(e) => handleInputChange('teamName', e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          placeholder="Enter your team name"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-3">
+                          Your Team Size:
+                        </label>
+                        <div className="grid grid-cols-3 gap-4">
+                          {[2, 3, 4].map((size) => (
+                            <label key={size} className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.teamSize === size ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-400' : 'border-gray-300'}`}>
+                              <input
+                                type="radio"
+                                name="teamSize"
+                                value={size}
+                                checked={formData.teamSize === size}
+                                onChange={(e) => handleInputChange('teamSize', parseInt(e.target.value))}
+                                className="sr-only"
+                              />
+                              <span className="font-medium">Team of {size}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
+                )}
 
+                {currentStep === 2 && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      What's your team's secret superpower?
-                    </label>
-                    <textarea
-                      value={formData.superpower}
-                      onChange={(e) => handleInputChange('superpower', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                      rows={3}
-                      placeholder="e.g., Super creative, amazing planners, master strategists..."
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                      <Star className="w-6 h-6 mr-3 text-yellow-500" />
+                      Tell Us About Your Team!
+                    </h2>
 
-            {currentStep === 3 && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <User className="w-6 h-6 mr-3 text-yellow-500" />
-                  Your Team Roster
-                </h2>
-                  <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
-
-                <div className="space-y-8">
-                  {Array.from({ length: formData.teamSize }, (_, index) => (
-                    <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                        Member {index + 1} {index === 0 && '(Team Leader)'}
-                      </h3>
-                     
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Full Name:
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.members[index].fullName}
-                            onChange={(e) => handleMemberChange(index, 'fullName', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                            placeholder="Enter full name"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Grade:
-                          </label>
-                          <select
-                            value={formData.members[index].grade}
-                            onChange={(e) => handleMemberChange(index, 'grade', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-200/70 disabled:cursor-not-allowed"
-                            disabled={index > 0}
-                          >
-                            <option value="">Select Grade</option>
-                            <option value="7th">7th</option>
-                            <option value="8th">8th</option>
-                            <option value="9th">9th</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email Address:
-                          </label>
-                          <input
-                            type="email"
-                            value={formData.members[index].email}
-                            onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                            placeholder="Enter email address"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone Number:
-                          </label>
-                          <input
-                            type="tel"
-                            value={formData.members[index].phoneNumber}
-                            onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                            placeholder="Enter phone number"
-                          />
+                    <div className="space-y-8">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-4">
+                          All teams will compete in all challenges. Get ready!
+                        </label>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {challenges.map((challenge) => {
+                            const IconComponent = challenge.icon;
+                            return (
+                              <div key={challenge.id} className="flex items-start p-4 bg-gray-50/50 border border-gray-200 rounded-lg">
+                                <IconComponent className="w-5 h-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <div className="font-medium text-gray-800">{challenge.name}</div>
+                                  <div className="text-sm text-gray-600">{challenge.description}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {currentStep === 4 && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <Instagram className="w-6 h-6 mr-3 text-yellow-500" />
-                  Stay Updated!
-                </h2>
-                <div className="text-center space-y-6">
-                    <p className="text-gray-700">
-                      Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
-                    </p>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
-                      <div className="flex justify-center">
-                        <img 
-                          src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
-                          alt="QR code for reelhaus.hyd Instagram"
-                          className="rounded-lg shadow-md"
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-4">
+                          What are your team's interests? (Check all that apply)
+                        </label>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          {interests.map((interest) => (
+                            <label key={interest} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors ${formData.interests.includes(interest) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}>
+                              <input
+                                type="checkbox"
+                                checked={formData.interests.includes(interest)}
+                                onChange={() => handleInterestToggle(interest)}
+                                className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                              />
+                              <span className="ml-3 text-gray-700">{interest}</span>
+                            </label>
+                          ))}
+                          <div className="flex items-center p-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-yellow-500">
+                            <input
+                              type="checkbox"
+                              checked={formData.otherInterest !== ''}
+                              readOnly
+                              className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                            />
+                            <input
+                              type="text"
+                              value={formData.otherInterest}
+                              onChange={(e) => handleInputChange('otherInterest', e.target.value)}
+                              placeholder="Other..."
+                              className="ml-3 flex-1 bg-transparent border-none outline-none placeholder-gray-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          What's your team's secret superpower?
+                        </label>
+                        <textarea
+                          value={formData.superpower}
+                          onChange={(e) => handleInputChange('superpower', e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          rows={3}
+                          placeholder="e.g., Super creative, amazing planners, master strategists..."
                         />
                       </div>
                     </div>
-                    <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
-                      <input
-                        type="checkbox"
-                        id="follow"
-                        checked={hasFollowedInstagram}
-                        onChange={(e) => setHasFollowedInstagram(e.target.checked)}
-                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="follow" className="text-gray-700 text-left">
-                        Yes, our team is now following @reelhaus.hyd for important updates!
-                      </label>
+                  </div>
+                )}
+
+                {currentStep === 3 && (
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                      <User className="w-6 h-6 mr-3 text-yellow-500" />
+                      Your Team Roster
+                    </h2>
+                      <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+
+                    <div className="space-y-8">
+                      {Array.from({ length: formData.teamSize }, (_, index) => (
+                        <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                            Member {index + 1} {index === 0 && '(Team Leader)'}
+                          </h3>
+                        
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Full Name:
+                              </label>
+                              <input
+                                type="text"
+                                value={formData.members[index].fullName}
+                                onChange={(e) => handleMemberChange(index, 'fullName', e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                placeholder="Enter full name"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Grade:
+                              </label>
+                              <select
+                                value={formData.members[index].grade}
+                                onChange={(e) => handleMemberChange(index, 'grade', e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-200/70 disabled:cursor-not-allowed"
+                                disabled={index > 0}
+                              >
+                                <option value="">Select Grade</option>
+                                <option value="7th">7th</option>
+                                <option value="8th">8th</option>
+                                <option value="9th">9th</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Email Address:
+                              </label>
+                              <input
+                                type="email"
+                                value={formData.members[index].email}
+                                onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                placeholder="Enter email address"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Phone Number:
+                              </label>
+                              <input
+                                type="tel"
+                                value={formData.members[index].phoneNumber}
+                                onChange={(e) => handleMemberChange(index, 'phoneNumber', e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                                placeholder="Enter phone number"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                </div>
-              </div>
+                  </div>
+                )}
+
+                {currentStep === 4 && (
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                      <Instagram className="w-6 h-6 mr-3 text-yellow-500" />
+                      Stay Updated!
+                    </h2>
+                    <div className="text-center space-y-6">
+                        <p className="text-gray-700">
+                          Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
+                        </p>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
+                          <div className="flex justify-center">
+                            <img 
+                              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
+                              alt="QR code for reelhaus.hyd Instagram"
+                              className="rounded-lg shadow-md"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
+                          <input
+                            type="checkbox"
+                            id="follow"
+                            checked={hasFollowedInstagram}
+                            onChange={(e) => setHasFollowedInstagram(e.target.checked)}
+                            className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="follow" className="text-gray-700 text-left">
+                            Yes, our team is now following @reelhaus.hyd for important updates!
+                          </label>
+                        </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {currentStep === 5 && (() => {
@@ -750,19 +699,11 @@ const Register: React.FC = () => {
                     Registration Fee & Payment
                   </h2>
 
+                  <div id="payment-form" className="mb-6">
+                    {/* The Cashfree drop-in form will be rendered here */}
+                  </div>
+
                   <div className="space-y-6">
-                    {/* New Mock Mode Warning */}
-                    {isPaymentMocked && (
-                        <div className="p-4 bg-orange-100 border-l-4 border-orange-500 text-orange-700">
-                            <div className='flex'>
-                                <AlertTriangle className='h-5 w-5 text-orange-500 mr-3'/>
-                                <div>
-                                    <p className="font-bold">Mock Payment Mode</p>
-                                    <p>The payment gateway could not be loaded. This is a simulated payment for testing purposes.</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                     {postPaymentError && (
                          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
                           <div className='flex'>
@@ -868,7 +809,7 @@ const Register: React.FC = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                   <>
-                      {isPaymentMocked ? 'Simulate Payment' : 'Proceed to Payment'}
+                      Proceed to Payment
                       {backendStatus !== 'online' && (
                         <span className="ml-2 text-xs">(Service Unavailable)</span>
                       )}
@@ -898,4 +839,3 @@ const Register: React.FC = () => {
 }; 
 
 export default Register;
-
