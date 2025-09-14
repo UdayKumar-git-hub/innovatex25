@@ -4,7 +4,7 @@
 // 1. Install dependencies: `npm install express dotenv node-fetch cors`
 // 2. Create the `.env` file in the same directory and add your credentials.
 // 3. Run the server: `node server.js`
-
+ 
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
