@@ -56,6 +56,19 @@ const checkBackendHealth = async (): Promise<boolean> => {
   });
 };
 
+
+// --- IMPORTANT SECURITY NOTE ---
+// The function below is a MOCK. In a real application, this function would
+// make a `fetch` call to your own backend server.
+//
+// Your Cashfree App ID and **SECRET KEY** must be stored securely on your
+// backend server and NEVER exposed in your frontend React code.
+//
+// The correct flow is:
+// 1. Frontend sends order details (e.g., amount) to your backend.
+// 2. Your backend uses your SECRET KEY to securely create a payment session with Cashfree.
+// 3. Your backend returns the `payment_session_id` to the frontend.
+// 4. The frontend uses this session ID to open the checkout modal.
 /**
  * MOCKS the creation of a Cashfree payment order from the backend.
  * @param {any} orderData - The data required to create the order.
@@ -206,7 +219,7 @@ const Register: React.FC = () => {
     setPostPaymentError('');
     setIsLoading(true);
 
-    if (!(window as any).Cashfree) {
+    if (!(window as any).cashfree) {
       setValidationError("Payment gateway failed to load. Please refresh and try again.");
       setIsLoading(false);
       return;
@@ -233,12 +246,13 @@ const Register: React.FC = () => {
         throw new Error("Failed to create payment session. Please check backend logs.");
       }
 
-      const cashfree = new (window as any).Cashfree.Checkout({
-        mode: 'production' // Set to 'production' for live payments
-      });
-
+      // FIX: Correctly initialize the Cashfree SDK object.
+      // The 'cashfree' object is attached to the window, and we initialize it here.
+      const cashfree = await new (window as any).cashfree.Cashfree();
+      
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
+        paymentSessionId: payment_session_id, // Pass the session ID here
         onSuccess: async (data: any) => {
           if (data.order && data.order.status === 'PAID') {
             console.log('Cashfree Payment Successful:', data);
@@ -286,11 +300,9 @@ const Register: React.FC = () => {
           color: "#FBBF24"
         }
       };
-
-      cashfree.checkout({
-        paymentSessionId: payment_session_id,
-        ...dropinConfig
-      });
+      
+      // FIX: Use the 'checkout' method on the initialized 'cashfree' object.
+      cashfree.checkout(dropinConfig);
 
     } catch (error: any) {
       console.error("Error during payment initiation:", error);
