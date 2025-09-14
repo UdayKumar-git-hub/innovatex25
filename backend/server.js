@@ -1,87 +1,75 @@
-// File: backend/server.js
-// --- Dependencies ---
-// Run `npm install express cors node-fetch@2 dotenv nodemon` in the 'backend' folder.
+// A simple example of an Express.js backend server to handle Cashfree payments.
+//
+// How to run this server:
+// 1. Install dependencies: `npm install express dotenv node-fetch cors`
+// 2. Create the `.env` file in the same directory and add your credentials.
+// 3. Run the server: `node server.js`
 
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config(); // This line loads the .env file
 
 const app = express();
+app.use(cors()); // Enable Cross-Origin Resource Sharing for your React app
+app.use(express.json());
 
-// --- Middleware ---
-app.use(express.json()); // To parse JSON request bodies
+const PORT = process.env.PORT || 4000;
+const CASHFREE_API_URL = 'https://sandbox.cashfree.com/pg'; // Use 'https://api.cashfree.com/pg' for production
 
-// CORS Configuration to allow requests from your frontend
-const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Your frontend's URL
-};
-app.use(cors(corsOptions));
-
-// --- Configuration ---
-const CASHFREE_CLIENT_ID = process.env.CASHFREE_APP_ID;
-const CASHFREE_CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY;
-
-// Determine API URL based on environment (sandbox or production)
-const isProd = process.env.CASHFREE_API_ENV === 'production';
-const CASHFREE_API_URL = isProd
-    ? 'https://api.cashfree.com/pg/orders'
-    : 'https://sandbox.cashfree.com/pg/orders';
-
-// --- API Endpoints ---
-
-// Health check endpoint for debugging frontend-backend connection
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'Backend is running' });
+// --- Route to Check Server Health ---
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
-// Endpoint to create a Cashfree payment order
-app.post('/api/create-cashfree-order', async (req, res) => {
-    try {
-        const { order_amount, order_id, customer_details } = req.body;
+// --- Route to Create Payment Order ---
+app.post('/api/create-payment-order', async (req, res) => {
+  try {
+    const { order_amount, customer_details } = req.body;
 
-        if (!order_amount || !order_id || !customer_details) {
-            return res.status(400).json({ error: 'Missing required order details.' });
-        }
-
-        const response = await fetch(CASHFREE_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-version': '2023-08-01', // Use a recent, valid API version
-                'x-client-id': CASHFREE_CLIENT_ID,
-                'x-client-secret': CASHFREE_CLIENT_SECRET,
-            },
-            body: JSON.stringify({
-                order_id: order_id,
-                order_amount: order_amount,
-                order_currency: 'INR',
-                customer_details: customer_details,
-                order_meta: {
-                    return_url: `${process.env.RETURN_URL}?order_id=${order_id}`
-                }
-            }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || data.type === 'error') {
-            console.error('Cashfree API Error:', data);
-            return res.status(response.status).json({ error: data.message || 'An error occurred with the payment provider.' });
-        }
-
-        res.status(200).json({ payment_session_id: data.payment_session_id });
-
-    } catch (error) {
-        console.error('Internal Server Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+    // Basic validation
+    if (!order_amount || !customer_details) {
+      return res.status(400).json({ message: 'Missing required order details.' });
     }
+
+    const response = await fetch(`${CASHFREE_API_URL}/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        'x-api-version': '2022-09-01',
+      },
+      body: JSON.stringify({
+        order_id: `INNOVATEX-SERVER-${Date.now()}`,
+        order_amount: order_amount,
+        order_currency: "INR",
+        customer_details: customer_details,
+        order_meta: {
+          // This allows redirects back to your app after payment
+          return_url: 'http://localhost:3000/return?order_id={order_id}'
+        }
+      }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Cashfree API Error:', errorData);
+        return res.status(response.status).json({ message: errorData.message || 'Failed to create payment session with Cashfree.' });
+    }
+
+    const data = await response.json();
+    res.status(200).json(data);
+
+  } catch (error) {
+    console.error('Server Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 });
 
-// --- Start Server ---
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`Accepting requests from: ${corsOptions.origin}`);
-    console.log(`Using Cashfree API URL: ${CASHFREE_API_URL}`);
-    console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
+  if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+    console.warn('WARNING: Cashfree credentials are not set in the .env file.');
+  }
 });
