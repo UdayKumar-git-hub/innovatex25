@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 // --- Helper Functions ---
-// NOTE: Backend calls are now mocked to allow for frontend testing without a live server.
+// NOTE: Backend calls are MOCKED to allow for frontend testing without a live server.
 
 /**
  * Creates a mock Cashfree object for development when the real SDK fails to load.
@@ -63,13 +63,13 @@ const createMockCashfree = () => {
  * Dynamically and robustly loads the Cashfree SDK script.
  * If the real SDK fails to load or initialize, it creates a mock version
  * to prevent the application from breaking during development.
- * @returns {Promise<boolean>} A promise that always resolves.
+ * @returns {Promise<{ success: boolean; mocked: boolean }>} A promise that resolves with the loading status.
  */
-const loadCashfreeSDK = (): Promise<boolean> => {
+const loadCashfreeSDK = (): Promise<{ success: boolean; mocked: boolean }> => {
   return new Promise((resolve) => {
     // If SDK is already available, resolve immediately.
     if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-      return resolve(true);
+      return resolve({ success: true, mocked: false });
     }
 
     const existingScript = document.getElementById('cashfree-sdk');
@@ -88,24 +88,24 @@ const loadCashfreeSDK = (): Promise<boolean> => {
       if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
         clearInterval(pollTimer);
         script.removeEventListener('error', handleError);
-        resolve(true);
+        resolve({ success: true, mocked: false });
       } else {
         elapsedTime += pollInterval;
         if (elapsedTime >= timeoutDuration) {
           clearInterval(pollTimer);
           script.removeEventListener('error', handleError);
-          // FIX: Instead of rejecting, create the mock and resolve
+          // Instead of rejecting, create the mock and resolve
           createMockCashfree();
-          resolve(true);
+          resolve({ success: true, mocked: true });
         }
       }
     }, pollInterval);
 
     const handleError = () => {
       clearInterval(pollTimer);
-      // FIX: Instead of rejecting, create the mock and resolve
+      // Instead of rejecting, create the mock and resolve
       createMockCashfree();
-      resolve(true);
+      resolve({ success: true, mocked: true });
     };
 
     script.addEventListener('error', handleError);
@@ -131,9 +131,6 @@ const checkBackendHealth = async (): Promise<boolean> => {
 // --- IMPORTANT SECURITY NOTE ---
 // The function below is a MOCK. In a real application, this function would
 // make a `fetch` call to your own backend server.
-//
-// Your Cashfree App ID and **SECRET KEY** must be stored securely on your
-// backend server and NEVER exposed in your frontend React code.
 /**
  * MOCKS the creation of a Cashfree payment order from the backend.
  * @param {any} orderData - The data required to create the order.
@@ -180,6 +177,7 @@ const Register: React.FC = () => {
   const [postPaymentError, setPostPaymentError] = React.useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
   const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
+  const [isPaymentMocked, setIsPaymentMocked] = React.useState(false); // State to track if payment is mocked
   const [formData, setFormData] = React.useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -198,19 +196,19 @@ const Register: React.FC = () => {
 
   React.useEffect(() => {
     const initializeServices = async () => {
-      // Step 1: Check Backend Health and set its status.
       setBackendStatus('checking');
       const isBackendOnline = await checkBackendHealth();
       setBackendStatus(isBackendOnline ? 'online' : 'offline');
 
-      // Step 2: If backend is online, THEN try to load the payment SDK.
       if (isBackendOnline) {
-        // loadCashfreeSDK now handles its own failures by creating a mock, so no try/catch is needed.
-        await loadCashfreeSDK();
+        const sdkStatus = await loadCashfreeSDK();
+        if (sdkStatus.mocked) {
+            setIsPaymentMocked(true);
+            setValidationError('Could not load payment gateway. Switched to mock mode for UI testing.');
+        }
         console.log('Cashfree SDK loaded successfully (real or mock).');
       } else {
-        // If the backend is genuinely offline, show a server error.
-        setValidationError('Could not connect to the server. Please check your connection and try again.');
+        setValidationError('Could not connect to the server. Please try again later.');
       }
     };
 
@@ -241,7 +239,6 @@ const Register: React.FC = () => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
 
-    // Auto-fill grade for all members based on team leader's grade
     if (index === 0 && field === 'grade') {
       for (let i = 1; i < formData.teamSize; i++) {
         newMembers[i] = { ...newMembers[i], grade: value };
@@ -317,7 +314,7 @@ const Register: React.FC = () => {
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
         paymentSessionId: payment_session_id,
-        returnUrl: window.location.href, // Good practice for some payment methods
+        returnUrl: window.location.href,
         onSuccess: (data: any) => {
           if (data.order && data.order.status === 'PAID') {
             console.log('Cashfree Payment Successful:', data);
@@ -354,7 +351,6 @@ const Register: React.FC = () => {
               setIsLoading(false);
             }
           } else {
-             // Handle cases where onSuccess is called but payment is not 'PAID'
              setIsLoading(false);
              setPostPaymentError("Payment status was not successful. Please check your account or contact support.");
           }
@@ -755,6 +751,18 @@ const Register: React.FC = () => {
                   </h2>
 
                   <div className="space-y-6">
+                    {/* New Mock Mode Warning */}
+                    {isPaymentMocked && (
+                        <div className="p-4 bg-orange-100 border-l-4 border-orange-500 text-orange-700">
+                            <div className='flex'>
+                                <AlertTriangle className='h-5 w-5 text-orange-500 mr-3'/>
+                                <div>
+                                    <p className="font-bold">Mock Payment Mode</p>
+                                    <p>The payment gateway could not be loaded. This is a simulated payment for testing purposes.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {postPaymentError && (
                          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
                           <div className='flex'>
@@ -860,7 +868,7 @@ const Register: React.FC = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                   <>
-                      Proceed to Payment
+                      {isPaymentMocked ? 'Simulate Payment' : 'Proceed to Payment'}
                       {backendStatus !== 'online' && (
                         <span className="ml-2 text-xs">(Service Unavailable)</span>
                       )}
