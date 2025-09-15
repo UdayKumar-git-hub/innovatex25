@@ -8,66 +8,62 @@ import {
 
 // --- Helper Functions ---
 
-// The base URL for your backend server.
-// 'process.env' is not available in the browser by default.
-// It requires a build tool like Vite (import.meta.env) or Create React App to be configured.
-// For this self-contained example, the URL is hardcoded.
+// The base URL for your backend server, read from your frontend's .env file.
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-;
-
 /**
- * Dynamically and robustly loads the Cashfree SDK script.
+ * Dynamically and robustly loads the real Cashfree SDK script from their server.
  * @returns {Promise<boolean>} A promise that resolves on success or rejects on failure.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
-  // SIMULATED SDK: In this sandboxed environment, we can't load external scripts.
-  // This function is modified to create a mock Cashfree object to simulate the payment flow.
-  return new Promise((resolve) => {
-    console.log("Simulating Cashfree SDK load...");
+  return new Promise((resolve, reject) => {
+    // If SDK is already loaded, don't load it again.
     if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
       return resolve(true);
     }
 
-    // Create a mock Cashfree object on the window
-    (window as any).cashfree = {
-      Cashfree: class {
-        drop(element: HTMLElement, config: any) {
-          console.log("Simulating Cashfree drop-in form.", { element, config });
-          
-          // Simulate a successful payment after a brief delay to show the loading state
-          setTimeout(() => {
-            console.log("Simulating successful payment callback...");
-            if (config.onSuccess) {
-              config.onSuccess({
-                order: {
-                  status: 'PAID',
-                  payment_id: `sim_pi_${Date.now()}` // A unique, simulated payment ID
-                }
-              });
-            }
-          }, 1500); // 1.5-second delay
+    const script = document.createElement('script');
+    script.id = 'cashfree-sdk';
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    document.body.appendChild(script);
+
+    const timeoutDuration = 8000; // 8 seconds
+    const pollInterval = 100;
+    let elapsedTime = 0;
+
+    const pollTimer = window.setInterval(() => {
+      if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
+        clearInterval(pollTimer);
+        script.removeEventListener('error', handleError);
+        resolve(true);
+      } else {
+        elapsedTime += pollInterval;
+        if (elapsedTime >= timeoutDuration) {
+          clearInterval(pollTimer);
+          script.removeEventListener('error', handleError);
+          reject(new Error('Cashfree SDK did not initialize. Check for ad-blockers or network issues.'));
         }
       }
+    }, pollInterval);
+
+    const handleError = () => {
+      clearInterval(pollTimer);
+      reject(new Error('Failed to load Cashfree SDK script. Check your internet connection.'));
     };
-    resolve(true);
+    script.addEventListener('error', handleError);
   });
 };
 
 /**
- * Checks the health of the REAL backend server.
+ * Checks the health of the REAL backend server by calling its /api/health endpoint.
  * @returns {Promise<boolean>} A promise that resolves to true if the backend is online.
  */
 const checkBackendHealth = async (): Promise<boolean> => {
-  // SIMULATED BACKEND: In this environment, we can't connect to a real backend.
-  // This function is modified to always return 'true' to allow the UI to load.
   try {
-    // const response = await fetch(`${API_URL}/api/health`);
-    // if (!response.ok) return false;
-    // const data = await response.json();
-    // return data.status === 'ok';
-    console.log("Simulating backend health check...");
-    return Promise.resolve(true);
+    const response = await fetch(`${API_URL}/api/health`);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.status === 'ok';
   } catch (error) {
     console.error("Backend health check failed:", error);
     return false;
@@ -80,28 +76,17 @@ const checkBackendHealth = async (): Promise<boolean> => {
  * @returns {Promise<any>} A promise that resolves with the payment session data from the server.
  */
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-   // SIMULATED BACKEND: In this environment, we can't connect to a real backend.
-  // This function is modified to return a dummy session ID to allow the payment flow to proceed.
-  try {
-    // const response = await fetch(`${API_URL}/api/create-payment-order`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(orderData),
-    // });
+  const response = await fetch(`${API_URL}/api/create-payment-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderData),
+  });
 
-    // if (!response.ok) {
-    //   const errorData = await response.json();
-    //   throw new Error(errorData.message || 'Failed to create payment order.');
-    // }
-    // return response.json();
-    console.log("Simulating payment order creation with data:", orderData);
-    return Promise.resolve({
-      payment_session_id: 'dummy_session_id_1234567890',
-      order_id: 'dummy_order_id_0987654321'
-    });
-  } catch(error) {
-      throw new Error('Failed to create payment order.');
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to create payment order on the backend.');
   }
+  return response.json();
 };
 
 // --- Component Interfaces ---
@@ -196,7 +181,6 @@ const Register: React.FC = () => {
         newMembers[i] = { ...newMembers[i], grade: value };
       }
     }
-
     setFormData(prev => ({ ...prev, members: newMembers }));
   };
 
@@ -276,10 +260,12 @@ const Register: React.FC = () => {
                 superpower: formData.superpower,
                 members: formData.members.slice(0, formData.teamSize),
                 payment_id: paymentId,
-                order_id: order_id,
+                order_id: order_id, // Also save the order_id from your server
                 total_amount: paymentDetails.total
               };
               console.log("Registration Data to be saved:", registrationData);
+              // In a real app, you would now send this to your backend to save in a database.
+              // For now, we'll use localStorage.
               localStorage.setItem('registrationData', JSON.stringify(registrationData));
               
               setFinalPaymentInfo({ teamName: formData.teamName, paymentId: paymentId });
@@ -291,7 +277,7 @@ const Register: React.FC = () => {
             }
           } else {
             setIsLoading(false);
-            setPostPaymentError("Payment status was not successful. Please check your account or contact support.");
+            setPostPaymentError("Payment status was not successful. Please contact support.");
           }
         },
         onFailure: (data: any) => {
@@ -300,7 +286,8 @@ const Register: React.FC = () => {
         },
       };
       
-      cashfree.drop(document.getElementById("payment-form"), dropinConfig);
+      // This launches the Cashfree modal.
+      cashfree.drop(dropinConfig);
 
     } catch (error: any) {
       setValidationError(error.message || "Could not connect to the payment gateway.");
@@ -340,7 +327,7 @@ const Register: React.FC = () => {
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
- 
+
   if (registrationComplete) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
@@ -364,9 +351,11 @@ const Register: React.FC = () => {
     )
   }
 
+  // --- JSX for the form ---
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
       <div className="max-w-4xl mx-auto px-6">
+        {/* Header Section */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -404,6 +393,7 @@ const Register: React.FC = () => {
           </div>
         </motion.div>
 
+        {/* Stepper Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
             {[1, 2, 3, 4, 5].map((step, index) => (
@@ -428,6 +418,7 @@ const Register: React.FC = () => {
           </div>
         </div>
 
+        {/* Form Content Section */}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -437,13 +428,14 @@ const Register: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
           >
+            {/* All form steps are rendered here */}
             {currentStep === 1 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                   <Users className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Identity
                 </h2>
-               
+              
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -481,15 +473,14 @@ const Register: React.FC = () => {
                 </div>
               </div>
             )}
-
             {currentStep === 2 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                   <Star className="w-6 h-6 mr-3 text-yellow-500" />
                   Tell Us About Your Team!
                 </h2>
-
                 <div className="space-y-8">
+                  {/* Challenges list */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
                       All teams will compete in all challenges. Get ready!
@@ -509,7 +500,7 @@ const Register: React.FC = () => {
                       })}
                     </div>
                   </div>
-
+                  {/* Interests checkboxes */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
                       What are your team's interests? (Check all that apply)
@@ -543,7 +534,7 @@ const Register: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
+                  {/* Superpower textarea */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       What's your team's secret superpower?
@@ -559,7 +550,6 @@ const Register: React.FC = () => {
                 </div>
               </div>
             )}
-
             {currentStep === 3 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -574,7 +564,7 @@ const Register: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">
                         Member {index + 1} {index === 0 && '(Team Leader)'}
                       </h3>
-                     
+                    
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -588,7 +578,6 @@ const Register: React.FC = () => {
                             placeholder="Enter full name"
                           />
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Grade:
@@ -605,7 +594,6 @@ const Register: React.FC = () => {
                             <option value="9th">9th</option>
                           </select>
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Email Address:
@@ -618,7 +606,6 @@ const Register: React.FC = () => {
                             placeholder="Enter email address"
                           />
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Phone Number:
@@ -637,7 +624,6 @@ const Register: React.FC = () => {
                 </div>
               </div>
             )}
-
             {currentStep === 4 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -645,35 +631,34 @@ const Register: React.FC = () => {
                   Stay Updated!
                 </h2>
                 <div className="text-center space-y-6">
-                    <p className="text-gray-700">
-                      Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
-                    </p>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
-                      <div className="flex justify-center">
-                        <img 
-                          src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
-                          alt="QR code for reelhaus.hyd Instagram"
-                          className="rounded-lg shadow-md"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
-                      <input
-                        type="checkbox"
-                        id="follow"
-                        checked={hasFollowedInstagram}
-                        onChange={(e) => setHasFollowedInstagram(e.target.checked)}
-                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  <p className="text-gray-700">
+                    Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
+                  </p>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
+                    <div className="flex justify-center">
+                      <img 
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
+                        alt="QR code for reelhaus.hyd Instagram"
+                        className="rounded-lg shadow-md"
                       />
-                      <label htmlFor="follow" className="text-gray-700 text-left">
-                        Yes, our team is now following @reelhaus.hyd for important updates!
-                      </label>
                     </div>
+                  </div>
+                  <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
+                    <input
+                      type="checkbox"
+                      id="follow"
+                      checked={hasFollowedInstagram}
+                      onChange={(e) => setHasFollowedInstagram(e.target.checked)}
+                      className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="follow" className="text-gray-700 text-left">
+                      Yes, our team is now following @reelhaus.hyd for important updates!
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
-            
             {currentStep === 5 && (() => {
               const paymentDetails = calculateTotal();
               return (
@@ -682,10 +667,9 @@ const Register: React.FC = () => {
                     <CreditCard className="w-6 h-6 mr-3 text-yellow-500" />
                     Registration Fee & Payment
                   </h2>
-
-                  <div id="payment-form" className="mb-6">
-                    {/* The Cashfree drop-in form will be rendered here */}
-                  </div>
+                  
+                  {/* THIS DIV IS THE TARGET FOR THE PAYMENT GATEWAY */}
+                  <div id="payment-form" className="mb-6"></div>
 
                   <div className="space-y-6">
                     {postPaymentError && (
@@ -705,13 +689,12 @@ const Register: React.FC = () => {
                         <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
                       </div>
                       <p className="text-yellow-700 mb-2">
-                        Register before <strong>September 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong>
+                        Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong>
                       </p>
                       <p className="text-yellow-800 font-semibold">
                         Early Bird Price: ₹449 per person (Regular: ₹499)
                       </p>
                     </div>
-
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
                         <div className="space-y-3 text-gray-700">
@@ -739,7 +722,6 @@ const Register: React.FC = () => {
                           </div>
                       </div>
                     </div>
-
                     <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <input
                         type="checkbox"
@@ -764,6 +746,7 @@ const Register: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
+        {/* Navigation Buttons */}
         <div className="flex justify-between mt-8">
           <button
             onClick={prevStep}
@@ -773,7 +756,6 @@ const Register: React.FC = () => {
             <ChevronLeft className="w-5 h-5 mr-2" />
             Previous
           </button>
-
           {currentStep < 5 ? (
             <button
               onClick={nextStep}
@@ -792,18 +774,18 @@ const Register: React.FC = () => {
               {isLoading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
-                  <>
-                      Proceed to Payment
-                      {backendStatus !== 'online' && (
-                        <span className="ml-2 text-xs">(Service Unavailable)</span>
-                      )}
-                      <CreditCard className="w-5 h-5 ml-2" />
-                  </>
+                <>
+                  Proceed to Payment
+                  {backendStatus !== 'online' && (
+                    <span className="ml-2 text-xs">(Service Unavailable)</span>
+                  )}
+                  <CreditCard className="w-5 h-5 ml-2" />
+                </>
               )}
             </button>
           )}
         </div>
-
+        {/* Footer Section */}
         <div className="mt-12 text-center bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Questions? Contact the event crew:</h3>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -823,4 +805,3 @@ const Register: React.FC = () => {
 };
 
 export default Register;
-
