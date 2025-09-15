@@ -18,18 +18,8 @@ const CASHFREE_API_URL = API_ENV === 'production'
     : 'https://sandbox.cashfree.com/pg';
     
 // --- Middleware ---
-// ✨ FIXED: This allows connections from both port 5173 and 5174
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-};
-app.use(cors(corsOptions));
+// ✨ FIXED: Allows requests from any origin to fix issues in the online IDE.
+app.use(cors()); 
 app.use(express.json());
 
 
@@ -52,7 +42,7 @@ app.post('/api/create-payment-order', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'x-client-id': "10740233429ec59b4bde3effd3f3204701", // Your App ID
-        // ✨ FIXED: Add your secret key inside the quotes
+        // ✨ FIXED: Add your secret key inside the quotes. The extra comma is removed.
         'x-client-secret': "cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d", 
         'x-api-version': '2022-09-01',
       },
