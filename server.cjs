@@ -41,8 +41,8 @@ app.post('/api/create-payment-order', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         // --- Integrate your credentials directly here ---
-        'x-client-id': "YOUR_CASHFREE_APP_ID_HERE",
-        'x-client-secret': "YOUR_CASHFREE_SECRET_KEY_HERE",
+        'x-client-id': "10740233429ec59b4bde3effd3f3204701",
+        'x-client-secret': "cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d",
         'x-api-version': '2022-09-01',
       },
       body: JSON.stringify({
