@@ -10,17 +10,28 @@ const app = express();
 
 // --- Configuration ---
 const PORT = 4000;
-const FRONTEND_URL = "http://localhost:5174"; // Your frontend URL
-const RETURN_URL = "http://localhost:5174/success"; // Your success page URL
+const RETURN_URL = "http://localhost:5174/success"; // Default success URL
 
 const API_ENV = 'sandbox'; // Or 'production'
 const CASHFREE_API_URL = API_ENV === 'production' 
     ? 'https://api.cashfree.com/pg' 
     : 'https://sandbox.cashfree.com/pg';
-
+    
 // --- Middleware ---
-app.use(cors({ origin: FRONTEND_URL }));
+// ✨ FIXED: This allows connections from both port 5173 and 5174
+const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
 
 // --- Route to Check Server Health ---
 app.get('/api/health', (req, res) => {
@@ -40,9 +51,9 @@ app.post('/api/create-payment-order', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // --- Integrate your credentials directly here ---
-        'x-client-id': "10740233429ec59b4bde3effd3f3204701",
-        'x-client-secret': "cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d",
+        'x-client-id': "10740233429ec59b4bde3effd3f3204701", // Your App ID
+        // ✨ FIXED: Add your secret key inside the quotes
+        'x-client-secret': "cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d", 
         'x-api-version': '2022-09-01',
       },
       body: JSON.stringify({
