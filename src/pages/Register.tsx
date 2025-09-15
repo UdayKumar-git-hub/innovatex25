@@ -12,7 +12,9 @@ import {
 // 'process.env' is not available in the browser by default.
 // It requires a build tool like Vite (import.meta.env) or Create React App to be configured.
 // For this self-contained example, the URL is hardcoded.
-const API_URL = 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+;
 
 /**
  * Dynamically and robustly loads the Cashfree SDK script.
