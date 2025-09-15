@@ -1,28 +1,24 @@
 // A simple example of an Express.js backend server to handle Cashfree payments.
-//
-// How to run this server:
-// 1. Install dependencies: `npm install express dotenv node-fetch cors`
-// 2. Create the `.env` file in the same directory and add your credentials.
-// 3. Run the server: `node server.js`
+// NOTE: Credentials are hardcoded for a specific, restrictive environment.
+// DO NOT use this code in a real production application.
 
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config(); // This line loads the .env file
 
 const app = express();
 
 // --- Configuration ---
-const PORT = process.env.PORT || 4000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const PORT = 4000;
+const FRONTEND_URL = "http://localhost:5173"; // Your frontend URL
+const RETURN_URL = "http://localhost:5173/success"; // Your success page URL
 
-const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
+const API_ENV = 'sandbox'; // Or 'production'
 const CASHFREE_API_URL = API_ENV === 'production' 
     ? 'https://api.cashfree.com/pg' 
     : 'https://sandbox.cashfree.com/pg';
 
 // --- Middleware ---
-// Enable CORS only for your specific frontend URL for security
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
@@ -36,7 +32,6 @@ app.post('/api/create-payment-order', async (req, res) => {
   try {
     const { order_amount, customer_details } = req.body;
 
-    // Basic validation
     if (!order_amount || !customer_details) {
       return res.status(400).json({ message: 'Missing required order details.' });
     }
@@ -45,9 +40,10 @@ app.post('/api/create-payment-order', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-client-id': process.env.CASHFREE_APP_ID,
-        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
-        'x-api-version': '2022-09-01', // Use a recent, stable API version
+        // --- Integrate your credentials directly here ---
+        'x-client-id': "10740233429ec59b4bde3effd3f3204701",
+        'x-client-secret': "cfsk_ma_prod_1d3901ac8e0c40555324ae5b8dc3611b_cb065e7d",
+        'x-api-version': '2022-09-01',
       },
       body: JSON.stringify({
         order_id: `INNOVATEX-SVR-${Date.now()}`,
@@ -55,8 +51,7 @@ app.post('/api/create-payment-order', async (req, res) => {
         order_currency: "INR",
         customer_details: customer_details,
         order_meta: {
-          // This allows redirects back to your app after payment on some platforms
-          return_url: `${process.env.RETURN_URL}?order_id={order_id}`
+          return_url: `${RETURN_URL}?order_id={order_id}`
         }
       }),
     });
@@ -78,7 +73,5 @@ app.post('/api/create-payment-order', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running on http://localhost:${PORT}`);
-  if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
-    console.warn('⚠️ WARNING: Cashfree credentials are not set in the .env file.');
-  }
+  console.warn('⚠️ WARNING: Credentials are hardcoded in server.js. Do not use in production!');
 });
