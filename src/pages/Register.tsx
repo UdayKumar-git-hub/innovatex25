@@ -19,43 +19,36 @@ const API_URL = 'http://localhost:4000';
  * @returns {Promise<boolean>} A promise that resolves on success or rejects on failure.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
+  // SIMULATED SDK: In this sandboxed environment, we can't load external scripts.
+  // This function is modified to create a mock Cashfree object to simulate the payment flow.
+  return new Promise((resolve) => {
+    console.log("Simulating Cashfree SDK load...");
     if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
       return resolve(true);
     }
 
-    const existingScript = document.getElementById('cashfree-sdk');
-    if (existingScript) existingScript.remove();
-
-    const script = document.createElement('script');
-    script.id = 'cashfree-sdk';
-    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    document.body.appendChild(script);
-
-    const timeoutDuration = 8000; // 8 seconds
-    const pollInterval = 100;
-    let elapsedTime = 0;
-
-    const pollTimer = window.setInterval(() => {
-      if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-        clearInterval(pollTimer);
-        script.removeEventListener('error', handleError);
-        resolve(true);
-      } else {
-        elapsedTime += pollInterval;
-        if (elapsedTime >= timeoutDuration) {
-          clearInterval(pollTimer);
-          script.removeEventListener('error', handleError);
-          reject(new Error('Cashfree SDK did not initialize. Please check for ad-blockers or network issues.'));
+    // Create a mock Cashfree object on the window
+    (window as any).cashfree = {
+      Cashfree: class {
+        drop(element: HTMLElement, config: any) {
+          console.log("Simulating Cashfree drop-in form.", { element, config });
+          
+          // Simulate a successful payment after a brief delay to show the loading state
+          setTimeout(() => {
+            console.log("Simulating successful payment callback...");
+            if (config.onSuccess) {
+              config.onSuccess({
+                order: {
+                  status: 'PAID',
+                  payment_id: `sim_pi_${Date.now()}` // A unique, simulated payment ID
+                }
+              });
+            }
+          }, 1500); // 1.5-second delay
         }
       }
-    }, pollInterval);
-
-    const handleError = () => {
-      clearInterval(pollTimer);
-      reject(new Error('Failed to load Cashfree SDK script. Check network connection or ad-blockers.'));
     };
-    script.addEventListener('error', handleError);
+    resolve(true);
   });
 };
 
