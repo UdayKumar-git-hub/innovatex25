@@ -9,7 +9,7 @@ const app = express();
 // --- Configuration from .env file ---
 const PORT = process.env.PORT || 4000;
 const FRONTEND_URL = process.env.FRONTEND_URL;
-const API_ENV = process.env.CASHFREE_API_ENV || 'production';
+const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
 
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
