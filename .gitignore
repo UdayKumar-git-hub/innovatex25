@@ -1,4 +1,5 @@
 # Logs
+# Logs and debug files from various tools.
 logs
 *.log
 npm-debug.log*
@@ -7,12 +8,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modulges
-dist
-dist-ssr
-*.local
+# Dependencies
+# This is the most important line. It ignores the thousands of
+# files that are installed by npm/yarn/pnpm.
+/node_modules
+
+# Build output
+# These folders are generated from your source code by the build process.
+/dist
+/dist-ssr
+
+# Environment variables
+# These files often contain secret keys and local settings.
+.env
+.env.local
+.env.*.local
 
 # Editor directories and files
+# User-specific settings for code editors like VS Code and JetBrains.
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,4 +35,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
