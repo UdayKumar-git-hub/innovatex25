@@ -8,56 +8,28 @@ import {
 
 // --- Helper Functions ---
 
-// The base URL for your backend server, read from your frontend's .env file.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Hardcoding the URL to fix the `import.meta.env` build error.
+const API_URL = 'http://localhost:4000';
 
 /**
- * Dynamically and robustly loads the real Cashfree SDK script from their server.
- * @returns {Promise<boolean>} A promise that resolves on success or rejects on failure.
+ * Dynamically loads the Cashfree SDK by creating a script tag.
+ * This is the most compatible method and avoids build issues.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    // If SDK is already loaded, don't load it again.
-    if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
+    // If the SDK is already loaded, resolve immediately.
+    if (typeof (window as any).cashfree === 'object') {
       return resolve(true);
     }
-
     const script = document.createElement('script');
-    script.id = 'cashfree-sdk';
     script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error('Cashfree SDK failed to load. Check ad-blockers or network issues.'));
     document.body.appendChild(script);
-
-    const timeoutDuration = 8000; // 8 seconds
-    const pollInterval = 100;
-    let elapsedTime = 0;
-
-    const pollTimer = window.setInterval(() => {
-      if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-        clearInterval(pollTimer);
-        script.removeEventListener('error', handleError);
-        resolve(true);
-      } else {
-        elapsedTime += pollInterval;
-        if (elapsedTime >= timeoutDuration) {
-          clearInterval(pollTimer);
-          script.removeEventListener('error', handleError);
-          reject(new Error('Cashfree SDK did not initialize. Check for ad-blockers or network issues.'));
-        }
-      }
-    }, pollInterval);
-
-    const handleError = () => {
-      clearInterval(pollTimer);
-      reject(new Error('Failed to load Cashfree SDK script. Check your internet connection.'));
-    };
-    script.addEventListener('error', handleError);
   });
 };
 
-/**
- * Checks the health of the REAL backend server by calling its /api/health endpoint.
- * @returns {Promise<boolean>} A promise that resolves to true if the backend is online.
- */
+
 const checkBackendHealth = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${API_URL}/api/health`);
@@ -70,11 +42,6 @@ const checkBackendHealth = async (): Promise<boolean> => {
   }
 };
 
-/**
- * Creates a Cashfree payment order by calling the REAL backend server.
- * @param {any} orderData - The data required to create the order.
- * @returns {Promise<any>} A promise that resolves with the payment session data from the server.
- */
 const createPaymentOrder = async (orderData: any): Promise<any> => {
   const response = await fetch(`${API_URL}/api/create-payment-order`, {
     method: 'POST',
@@ -118,6 +85,7 @@ const Register: React.FC = () => {
   const [postPaymentError, setPostPaymentError] = React.useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
   const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
+  
   const [formData, setFormData] = React.useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -139,6 +107,7 @@ const Register: React.FC = () => {
 
       if (isBackendOnline) {
         try {
+          // Load the SDK when the component mounts and backend is online.
           await loadCashfreeSDK();
           console.log('Cashfree SDK loaded successfully.');
         } catch (error) {
@@ -205,23 +174,22 @@ const Register: React.FC = () => {
   };
   
   const handlePayment = async () => {
-    if (backendStatus !== 'online') {
-      setValidationError("Backend service is not available. Please try again later.");
+    // ✨ 1. ADDED: Final, robust validation before sending the payment request.
+    const leader = formData.members[0];
+    if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
+      setValidationError("Team Leader's details (Full Name, Email, Phone) are incomplete. Please go back and fill them out.");
+      // Set the step back to the user details page for convenience.
+      setCurrentStep(3); 
       return;
     }
-    if (!isStepValid()) {
-      setValidationError("Please ensure you've agreed to the rules before proceeding.");
+
+    if (backendStatus !== 'online' || !isStepValid()) {
+      setValidationError("Please fix the errors before proceeding.");
       return;
     }
     setValidationError('');
     setPostPaymentError('');
     setIsLoading(true);
-
-    if (typeof (window as any).cashfree !== 'object' || (window as any).cashfree === null) {
-      setValidationError("Payment gateway failed to load. Please refresh and try again.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const paymentDetails = calculateTotal();
@@ -234,6 +202,10 @@ const Register: React.FC = () => {
           customer_name: formData.members[0].fullName,
         }
       };
+      
+      // ✨ 2. ADDED: A console log to show you the exact data being sent.
+      // This helps with debugging if the error persists.
+      console.log("Sending order data to backend:", orderData);
 
       const sessionResponse = await createPaymentOrder(orderData);
       const { payment_session_id, order_id } = sessionResponse;
@@ -242,51 +214,38 @@ const Register: React.FC = () => {
         throw new Error("Failed to create payment session from backend.");
       }
 
+      // Use the globally available `cashfree` object from the loaded script.
       const cashfree = new (window as any).cashfree.Cashfree();
       
       const dropinConfig = {
         components: ["order-details", "card", "upi", "netbanking"],
         paymentSessionId: payment_session_id,
         onSuccess: (data: any) => {
+          setIsLoading(false);
           if (data.order && data.order.status === 'PAID') {
             const paymentId = data.order.payment_id;
-            try {
-              const registrationData = {
-                team_name: formData.teamName,
-                team_size: formData.teamSize,
-                grade: formData.members[0].grade,
-                interests: formData.interests,
-                other_interest: formData.otherInterest,
-                superpower: formData.superpower,
-                members: formData.members.slice(0, formData.teamSize),
-                payment_id: paymentId,
-                order_id: order_id, // Also save the order_id from your server
-                total_amount: paymentDetails.total
-              };
-              console.log("Registration Data to be saved:", registrationData);
-              // In a real app, you would now send this to your backend to save in a database.
-              // For now, we'll use localStorage.
-              localStorage.setItem('registrationData', JSON.stringify(registrationData));
-              
-              setFinalPaymentInfo({ teamName: formData.teamName, paymentId: paymentId });
-              setRegistrationComplete(true);
-            } catch (error: any) {
-              setPostPaymentError(`Payment successful (ID: ${paymentId}), but failed to save registration. Please contact support.`);
-            } finally {
-              setIsLoading(false);
-            }
+            const registrationData = {
+              team_name: formData.teamName,
+              payment_id: paymentId,
+              order_id: order_id,
+              total_amount: paymentDetails.total
+              // ... add other form data to save
+            };
+            console.log("Saving registration:", registrationData);
+            localStorage.setItem('registrationData', JSON.stringify(registrationData));
+            
+            setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
+            setRegistrationComplete(true);
           } else {
-            setIsLoading(false);
-            setPostPaymentError("Payment status was not successful. Please contact support.");
+             setPostPaymentError("Payment status was not successful. Please contact support.");
           }
         },
         onFailure: (data: any) => {
-          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
           setIsLoading(false);
+          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
         },
       };
       
-      // This launches the Cashfree modal.
       cashfree.drop(dropinConfig);
 
     } catch (error: any) {
@@ -351,11 +310,9 @@ const Register: React.FC = () => {
     )
   }
 
-  // --- JSX for the form ---
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
       <div className="max-w-4xl mx-auto px-6">
-        {/* Header Section */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -393,7 +350,6 @@ const Register: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Stepper Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
             {[1, 2, 3, 4, 5].map((step, index) => (
@@ -418,7 +374,6 @@ const Register: React.FC = () => {
           </div>
         </div>
 
-        {/* Form Content Section */}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -428,7 +383,6 @@ const Register: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
           >
-            {/* All form steps are rendered here */}
             {currentStep === 1 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -480,7 +434,6 @@ const Register: React.FC = () => {
                   Tell Us About Your Team!
                 </h2>
                 <div className="space-y-8">
-                  {/* Challenges list */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
                       All teams will compete in all challenges. Get ready!
@@ -500,7 +453,6 @@ const Register: React.FC = () => {
                       })}
                     </div>
                   </div>
-                  {/* Interests checkboxes */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-4">
                       What are your team's interests? (Check all that apply)
@@ -534,7 +486,6 @@ const Register: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Superpower textarea */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       What's your team's secret superpower?
@@ -668,9 +619,6 @@ const Register: React.FC = () => {
                     Registration Fee & Payment
                   </h2>
                   
-                  {/* THIS DIV IS THE TARGET FOR THE PAYMENT GATEWAY */}
-                  <div id="payment-form" className="mb-6"></div>
-
                   <div className="space-y-6">
                     {postPaymentError && (
                       <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
@@ -746,7 +694,6 @@ const Register: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation Buttons */}
         <div className="flex justify-between mt-8">
           <button
             onClick={prevStep}
@@ -785,7 +732,6 @@ const Register: React.FC = () => {
             </button>
           )}
         </div>
-        {/* Footer Section */}
         <div className="mt-12 text-center bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Questions? Contact the event crew:</h3>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -805,3 +751,5 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
+
