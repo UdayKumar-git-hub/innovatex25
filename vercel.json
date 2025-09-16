@@ -1,11 +1,9 @@
 {
-  "builds": [
-    { "src": "vite.config.ts", "use": "@vercel/static-build" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    {
+      "source": "/((?!api/|_next/|.*\\..*).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
@@ -13,7 +11,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://sdk.cashfree.com; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' https://sdk.cashfree.com; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
         }
       ]
     }
