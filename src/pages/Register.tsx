@@ -43,7 +43,7 @@ const checkBackendHealth = async (): Promise<boolean> => {
 };
 
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-  const response = await fetch(`${API_URL}/api/create-payment-order`, {
+  const response = await fetch(`${API_URL}/api/create-payment-order, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
