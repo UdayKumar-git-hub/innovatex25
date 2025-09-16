@@ -5,7 +5,7 @@ const cors = require('cors');
 const app = express();
 const PORT = 4000;
 const RETURN_URL = "http://localhost:5174/success"; 
-const API_ENV = 'production';
+const API_ENV = 'sandbox';
 const CASHFREE_API_URL = API_ENV === 'production' ? 'https://sandbox.cashfree.com/pg' : 'https://api.cashfree.com/pg';
 
 // --- Middleware ---
