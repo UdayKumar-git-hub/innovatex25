@@ -5,11 +5,8 @@
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
   "routes": [
-  { "src": "/api/(.*)", "dest": "/api/server.cjs" }
-]
-,
-  "rewrites": [
-    { "source": "/((?!api).*)", "destination": "/index.html" }
+    { "src": "/api/(.*)", "dest": "/api/server.cjs" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
@@ -17,7 +14,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+          "value": "default-src 'self'; script-src 'self' https://sdk.cashfree.com 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
         }
       ]
     }
