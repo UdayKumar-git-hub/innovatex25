@@ -9,5 +9,5 @@ export default defineConfig({
       input: '/index.html'
     }
   },
-  base: '/'  // important for correct asset paths
+  base: '/'
 });
