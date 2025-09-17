@@ -5,8 +5,9 @@
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/server.cjs" }
-  ],
+  { "src": "/api/(.*)", "dest": "/api/server.cjs" }
+]
+,
   "rewrites": [
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ],

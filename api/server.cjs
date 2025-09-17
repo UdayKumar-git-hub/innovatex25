@@ -1,18 +1,20 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
 
-// --- Configuration from .env file ---
-const FRONTEND_URL = process.env.FRONTEND_URL;
+// --- Config ---
+const FRONTEND_URL = process.env.FRONTEND_URL || '*';
 const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
 
-const CASHFREE_API_URL = API_ENV === 'production' 
-    ? 'https://api.cashfree.com/pg' 
+const CASHFREE_API_URL =
+  API_ENV === 'production'
+    ? 'https://api.cashfree.com/pg'
     : 'https://sandbox.cashfree.com/pg';
 
 // --- Middleware ---
@@ -21,16 +23,16 @@ app.use(express.json());
 
 // --- Health Route ---
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.json({ status: 'ok' });
 });
 
-// --- Create Payment Order Route ---
+// --- Payment Route ---
 app.post('/api/create-payment-order', async (req, res) => {
   try {
     const { order_amount, customer_details } = req.body;
 
     if (!order_amount || !customer_details) {
-      return res.status(400).json({ message: 'Missing required order details.' });
+      return res.status(400).json({ message: 'Missing order details' });
     }
 
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
@@ -54,17 +56,16 @@ app.post('/api/create-payment-order', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Cashfree API Error:', errorData);
-      return res.status(response.status).json({ message: errorData.message || 'Failed to create payment session.' });
+      return res.status(response.status).json({ message: errorData.message });
     }
 
     const data = await response.json();
-    res.status(200).json(data);
-  } catch (error) {
-    console.error('Server Error creating payment order:', error);
+    res.json(data);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// ✅ Export app for Vercel
-module.exports = app;
+// ✅ Export for Vercel
+module.exports = serverless(app);
