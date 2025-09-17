@@ -1,12 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>InnovateX25 Landing Website</title>
-</head>
-<body>
-  <div id="root"></div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Content Security Policy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' https://sdk.cashfree.com 'unsafe-eval' blob:;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data: https://api.qrserver.com;
+        connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;
+      "
+    />
+
+    <title>Innovatex</title>
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
