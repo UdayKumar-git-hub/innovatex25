@@ -1,7 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
@@ -68,4 +67,4 @@ app.post('/api/create-payment-order', async (req, res) => {
 });
 
 // ✅ Export for Vercel
-module.exports = app;
+module.exports = require('serverless-http')(app);
