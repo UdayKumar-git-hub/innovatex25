@@ -1,125 +1,100 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
-  ChevronLeft, Check, Star, Mail, Phone, User, CreditCard,
-  Sparkles, PartyPopper, AlertTriangle, Instagram
-} from 'lucide-react';
-
-// --- Helper Functions ---
-
-// Hardcoding the URL to fix the `import.meta.env` build error.
-//const API_URL = 'https://www.reelhaus.in';
-
-/**
- * Dynamically loads the Cashfree SDK by creating a script tag.
- * This is the most compatible method and avoids build issues.
- */
-const loadCashfreeSDK = (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    // If the SDK is already loaded, resolve immediately.
-    if (typeof (window as any).cashfree === 'object') {
-      return resolve(true);
-    }
-    const script = document.createElement('script');
-    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error('Cashfree SDK failed to load. Check ad-blockers or network issues.'));
-    document.body.appendChild(script);
-  });
+try {
+const response = await fetch(`${API_URL}/api/health`);
+if (!response.ok) return false;
+const data = await response.json();
+return data.status === 'ok';
+} catch (error) {
+console.error("Backend health check failed:", error);
+return false;
+}
 };
 
-
-const checkBackendHealth = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${API_URL}/api/health`);
-    if (!response.ok) return false;
-    const data = await response.json();
-    return data.status === 'ok';
-  } catch (error) {
-    console.error("Backend health check failed:", error);
-    return false;
-  }
-};
 
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-  const response = await fetch(`${API_URL}/api/create-payment-order, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData),
-  });
+const response = await fetch(`${API_URL}/api/create-payment-order`, { // FIXED: missing closing backtick
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(orderData),
+});
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to create payment order on the backend.');
-  }
-  return response.json();
+
+if (!response.ok) {
+const errorData = await response.json();
+throw new Error(errorData.message || 'Failed to create payment order on the backend.');
+}
+return response.json();
 };
+
 
 // --- Component Interfaces ---
 interface TeamMember {
-  fullName: string;
-  grade: string;
-  email: string;
-  phoneNumber: string;
+fullName: string;
+grade: string;
+email: string;
+phoneNumber: string;
 }
 
+
 interface FormData {
-  teamName: string;
-  teamSize: number;
-  challenges: string[];
-  interests: string[];
-  otherInterest: string;
-  superpower: string;
-  members: TeamMember[];
-  agreedToRules: boolean;
+teamName: string;
+teamSize: number;
+challenges: string[];
+interests: string[];
+otherInterest: string;
+superpower: string;
+members: TeamMember[];
+agreedToRules: boolean;
 }
+
 
 // --- Main Component ---
 const Register: React.FC = () => {
-  const [currentStep, setCurrentStep] = React.useState(1);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [validationError, setValidationError] = React.useState('');
-  const [registrationComplete, setRegistrationComplete] = React.useState(false);
-  const [finalPaymentInfo, setFinalPaymentInfo] = React.useState({ teamName: '', paymentId: '' });
-  const [postPaymentError, setPostPaymentError] = React.useState('');
-  const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
-  const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
-  
-  const [formData, setFormData] = React.useState<FormData>({
-    teamName: '',
-    teamSize: 2,
-    challenges: ['ipl', 'brand', 'innovators', 'echoes'],
-    interests: [],
-    otherInterest: '',
-    superpower: '',
-    members: Array(4).fill(null).map(() => ({
-      fullName: '', grade: '', email: '', phoneNumber: ''
-    })),
-    agreedToRules: false
-  });
+const [currentStep, setCurrentStep] = React.useState(1);
+const [isLoading, setIsLoading] = React.useState(false);
+const [validationError, setValidationError] = React.useState('');
+const [registrationComplete, setRegistrationComplete] = React.useState(false);
+const [finalPaymentInfo, setFinalPaymentInfo] = React.useState({ teamName: '', paymentId: '' });
+const [postPaymentError, setPostPaymentError] = React.useState('');
+const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
+const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
 
-  React.useEffect(() => {
-    const initializeServices = async () => {
-      setBackendStatus('checking');
-      const isBackendOnline = await checkBackendHealth();
-      setBackendStatus(isBackendOnline ? 'online' : 'offline');
 
-      if (isBackendOnline) {
-        try {
-          // Load the SDK when the component mounts and backend is online.
-          await loadCashfreeSDK();
-          console.log('Cashfree SDK loaded successfully.');
-        } catch (error) {
-          console.error('Failed to initialize payment SDK:', error);
-          setValidationError((error as Error).message);
-        }
-      } else {
-        setValidationError('Could not connect to the server. Please ensure your backend is running and try again.');
-      }
-    };
-    initializeServices();
-  }, []);
+const [formData, setFormData] = React.useState<FormData>({
+teamName: '',
+teamSize: 2,
+challenges: ['ipl', 'brand', 'innovators', 'echoes'],
+interests: [],
+otherInterest: '',
+superpower: '',
+members: Array(4).fill(null).map(() => ({
+fullName: '', grade: '', email: '', phoneNumber: ''
+})),
+agreedToRules: false
+});
+
+
+React.useEffect(() => {
+const initializeServices = async () => {
+setBackendStatus('checking');
+const isBackendOnline = await checkBackendHealth();
+setBackendStatus(isBackendOnline ? 'online' : 'offline');
+
+
+if (isBackendOnline) {
+try {
+await loadCashfreeSDK();
+console.log('Cashfree SDK loaded successfully.');
+} catch (error) {
+console.error('Failed to initialize payment SDK:', error);
+setValidationError((error as Error).message);
+}
+} else {
+setValidationError('Could not connect to the server. Please ensure your backend is running and try again.');
+}
+};
+initializeServices();
+}, []);
   
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
