@@ -22,7 +22,7 @@
       "src": "/(.*)",
       "dest": "/index.html",
       "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' https://sdk.cashfree.com 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' https://sdk.cashfree.com 'unsafe-inline' 'unsafe-eval' https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com https:; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com https://vercel.live;"
       }
     }
   ]
