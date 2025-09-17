@@ -8,11 +8,11 @@
     { "src": "/api/(.*)", "dest": "/api/server.cjs" }
   ],
   "rewrites": [
-    { "source": "/((?!api|assets)/.*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/((?!api|assets)/.*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
