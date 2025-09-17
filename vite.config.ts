@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  build: { outDir: 'dist' },
-  base: '/'
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      input: '/index.html'
+    }
+  },
+  base: '/'  // important for correct asset paths
 });
