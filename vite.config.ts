@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
-    sourcemap: false, // disable source maps using eval
+    sourcemap: false, // Disable source maps to prevent eval usage
     rollupOptions: {
       output: {
         sourcemapExcludeSources: true
