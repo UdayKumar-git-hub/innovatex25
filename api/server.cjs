@@ -1,57 +1,44 @@
-// A secure Express.js backend server for Vercel
+// File: /api/server.cjs
 
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config(); // Loads .env file for local development
+require('dotenv').config();
 
 const app = express();
 
-// --- Configuration ---
-// These values MUST be set in your Vercel Project Settings > Environment Variables
+// --- Configuration from .env file ---
+// Vercel will provide the PORT, so we don't need it here.
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
 
-const CASHFREE_API_URL = API_ENV === 'production'
-    ? 'https://api.cashfree.com/pg'
+const CASHFREE_API_URL = API_ENV === 'production' 
+    ? 'https://api.cashfree.com/pg' 
     : 'https://sandbox.cashfree.com/pg';
 
 // --- Middleware ---
-// Sets up CORS to only allow requests from your frontend's domain
-const corsOptions = {
-  origin: FRONTEND_URL
-};
-app.use(cors(corsOptions));
-
-// Parses incoming JSON request bodies
+// Allow requests from your frontend URL
+app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
-// --- API Routes ---
-
-/**
- * @route GET /api/health
- * @description A simple health check endpoint to confirm the server is running.
- */
+// --- Route to Check Server Health ---
+// Vercel rewrites /api/health to this function
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-/**
- * @route POST /api/create-payment-order
- * @description Creates a new payment order with Cashfree.
- */
+// --- Route to Create Payment Order ---
+// Vercel rewrites /api/create-payment-order to this function
 app.post('/api/create-payment-order', async (req, res) => {
   try {
     const { order_amount, customer_details } = req.body;
 
-    // Basic validation
     if (!order_amount || !customer_details) {
       return res.status(400).json({ message: 'Missing required order details.' });
     }
 
-    // Call the Cashfree API
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -71,15 +58,13 @@ app.post('/api/create-payment-order', async (req, res) => {
       }),
     });
 
-    const data = await response.json();
-
-    // Handle errors from Cashfree's API
     if (!response.ok) {
-        console.error('Cashfree API Error:', data);
-        return res.status(response.status).json({ message: data.message || 'Failed to create payment session.' });
+        const errorData = await response.json();
+        console.error('Cashfree API Error:', errorData);
+        return res.status(response.status).json({ message: errorData.message || 'Failed to create payment session.' });
     }
-    
-    // Send the successful response back to the frontend
+
+    const data = await response.json();
     res.status(200).json(data);
 
   } catch (error) {
@@ -88,7 +73,7 @@ app.post('/api/create-payment-order', async (req, res) => {
   }
 });
 
+// ❌ REMOVE THIS LINE: app.listen(PORT, () => { ... });
 
-// --- Vercel Export ---
-// This line makes the Express app available for Vercel's serverless environment.
+// ✅ ADD THIS LINE: This exports the app for Vercel to use.
 module.exports = app;
