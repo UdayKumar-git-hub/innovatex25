@@ -1,6 +1,8 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
+const path = require('path');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
@@ -19,6 +21,10 @@ const CASHFREE_API_URL =
 // --- Middleware ---
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
+
+// --- Serve React build ---
+const DIST_DIR = path.join(__dirname, '../dist');
+app.use(express.static(DIST_DIR));
 
 // --- Health Route ---
 app.get('/api/health', (req, res) => {
@@ -66,5 +72,10 @@ app.post('/api/create-payment-order', async (req, res) => {
   }
 });
 
+// --- SPA fallback (React Router) ---
+app.get('*', (req, res) => {
+  res.sendFile(path.join(DIST_DIR, 'index.html'));
+});
+
 // ✅ Export for Vercel
-module.exports = require('serverless-http')(app);
+module.exports = serverless(app);
