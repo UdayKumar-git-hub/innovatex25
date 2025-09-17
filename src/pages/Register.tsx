@@ -9,7 +9,7 @@ import {
 // --- Helper Functions ---
 
 // Hardcoding the URL to fix the `import.meta.env` build error.
-const API_URL = 'https://www.reelhaus.in';
+//const API_URL = 'https://www.reelhaus.in';
 
 /**
  * Dynamically loads the Cashfree SDK by creating a script tag.
@@ -43,7 +43,7 @@ const checkBackendHealth = async (): Promise<boolean> => {
 };
 
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-  const response = await fetch(`${API_URL}/api/create-payment-order`, {
+  const response = await fetch(`${API_URL}/api/create-payment-order, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
