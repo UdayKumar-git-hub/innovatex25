@@ -14,16 +14,15 @@
     }
   ],
   "routes": [
-    // API routes
+   
     {
       "src": "/api/(.*)",
       "dest": "/api/server.cjs"
     },
-    // Serve static files first
+    
     {
       "handle": "filesystem"
     },
-    // SPA fallback for all other routes (React Router)
     {
       "src": "/(.*)",
       "dest": "/dist/index.html"
