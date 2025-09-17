@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [react()],
   base: './', // ✅ relative paths for assets, fixes SPA + favicon
   build: {
-    outDir: 'dist',
-    sourcemap: true,
+    outDir: 'dist', // Vercel expects dist
+    sourcemap: true, // helpful for debugging
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
