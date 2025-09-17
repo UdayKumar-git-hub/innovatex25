@@ -1,8 +1,11 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const cors = require('cors');
-const serverless = require('serverless-http');
-require('dotenv').config();
+// api/server.js
+import express from 'express';
+import fetch from 'node-fetch';
+import cors from 'cors';
+import serverless from 'serverless-http';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 
@@ -21,17 +24,19 @@ const CASHFREE_API_URL =
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
-// --- Health route ---
+// --- Health Route ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// --- Payment route ---
+// --- Payment Route ---
 app.post('/api/create-payment-order', async (req, res) => {
   try {
     const { order_amount, customer_details } = req.body;
-    if (!order_amount || !customer_details)
+
+    if (!order_amount || !customer_details) {
       return res.status(400).json({ message: 'Missing order details' });
+    }
 
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
@@ -39,7 +44,7 @@ app.post('/api/create-payment-order', async (req, res) => {
         'Content-Type': 'application/json',
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
-        'x-api-version': '2022-09-01'
+        'x-api-version': '2022-09-01',
       },
       body: JSON.stringify({
         order_id: `INNOVATEX-SVR-${Date.now()}`,
@@ -47,9 +52,9 @@ app.post('/api/create-payment-order', async (req, res) => {
         order_currency: 'INR',
         customer_details,
         order_meta: {
-          return_url: `${FRONTEND_URL}/success?order_id={order_id}`
-        }
-      })
+          return_url: `${FRONTEND_URL}/success?order_id={order_id}`,
+        },
+      }),
     });
 
     if (!response.ok) {
@@ -59,11 +64,11 @@ app.post('/api/create-payment-order', async (req, res) => {
 
     const data = await response.json();
     res.json(data);
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-module.exports = serverless(app);
+// ✅ Export for Vercel
+export const handler = serverless(app);
