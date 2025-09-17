@@ -68,4 +68,4 @@ app.post('/api/create-payment-order', async (req, res) => {
 });
 
 // ✅ Export for Vercel
-module.exports = serverless(app);
+module.exports = app;
