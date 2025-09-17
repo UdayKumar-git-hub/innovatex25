@@ -1,13 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// ✅ Fixed Vite config for Vercel deployment
 export default defineConfig({
   plugins: [react()],
-  base: '/', // ensure assets resolve correctly on Vercel
+  base: './', // ✅ relative paths for assets, fixes SPA + favicon
   build: {
-    outDir: 'dist', // Vercel expects dist
-    sourcemap: true, // helps debug blank screen issues
+    outDir: 'dist',
+    sourcemap: true,
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
