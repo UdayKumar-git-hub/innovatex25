@@ -1,25 +1,17 @@
-// A secure Express.js backend server to handle Cashfree payments.
+// File: /api/index.cjs
+
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-require('dotenv').config(); // This line loads the .env file
+require('dotenv').config();
 
 const app = express();
 
 // --- Configuration from .env file ---
-const PORT = process.env.PORT || 4000;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
-
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
-
-// ✨ DIAGNOSTIC LOGS: These lines will print the keys to your terminal on startup.
-console.log("--- Initializing Server with Diagnostic Logs ---");
-console.log(`Attempting to use App ID: ${CASHFREE_APP_ID}`);
-console.log(`Does Secret Key exist?  ${CASHFREE_SECRET_KEY ? 'Yes' : 'No, it is missing or undefined!'}`);
-console.log("----------------------------------------------");
-
 
 const CASHFREE_API_URL = API_ENV === 'production'
     ? 'https://api.cashfree.com/pg'
@@ -66,9 +58,9 @@ app.post('/api/create-payment-order', async (req, res) => {
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Cashfree API Error:', errorData);
-        return res.status(response.status).json({ message: errorData.message || 'Failed to create payment session.' });
+      const errorData = await response.json();
+      console.error('Cashfree API Error:', errorData);
+      return res.status(response.status).json({ message: errorData.message || 'Failed to create payment session.' });
     }
 
     const data = await response.json();
@@ -80,7 +72,5 @@ app.post('/api/create-payment-order', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Backend server is running on http://localhost:${PORT}`);
-});
-
+// Export the app for Vercel to use
+module.exports = app;
