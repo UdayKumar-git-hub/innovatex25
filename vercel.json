@@ -12,7 +12,7 @@
     {
       "src": "/((?!api/).*)",
       "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' https://sdk.cashfree.com 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://sdk.cashfree.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://sandbox.cashfree.com https://api.cashfree.com;"
       },
       "dest": "/index.html"
     }
