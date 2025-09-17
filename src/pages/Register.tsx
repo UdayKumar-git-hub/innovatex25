@@ -9,7 +9,11 @@ import {
 // --- Global Constants ---
 
 // Hardcoding the URL to fix potential build errors related to environment variables.
-const API_URL = 'https://www.reelhaus.in';
+// FIX: Added a CORS proxy to resolve the "Failed to fetch" error. This occurs
+// because the browser blocks requests to a different domain (CORS policy)
+// if the server doesn't explicitly allow it. The proxy adds the necessary headers.
+const API_URL = 'https://thingproxy.freeboard.io/fetch/https://www.reelhaus.in';
+
 
 // --- Helper Functions ---
 
@@ -762,3 +766,4 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
