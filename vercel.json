@@ -19,11 +19,8 @@
       "dest": "/api/server.cjs"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/.*",
-      "dest": "/dist/index.html"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
