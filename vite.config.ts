@@ -1,14 +1,19 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: './', // relative paths fix assets and SPA routing
+  base: './',
   build: {
-    outDir: 'dist',   // Vercel expects this
-    sourcemap: true,  // useful for debugging
+    outDir: 'dist',
+    sourcemap: false, // disable source maps using eval
+    rollupOptions: {
+      output: {
+        sourcemapExcludeSources: true
+      }
+    }
   },
-  optimizeDeps: {
-    exclude: ['lucide-react'], // optional
-  },
-});
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production')
+  }
+})
