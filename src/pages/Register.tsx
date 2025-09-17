@@ -6,18 +6,20 @@ import {
   Sparkles, PartyPopper, AlertTriangle, Instagram
 } from 'lucide-react';
 
-// --- Helper Functions ---
+// --- Global Constants ---
 
-// Hardcoding the URL to fix the `import.meta.env` build error.
-//const API_URL = 'https://www.reelhaus.in';
+// Hardcoding the URL to fix potential build errors related to environment variables.
+const API_URL = 'https://www.reelhaus.in';
+
+// --- Helper Functions ---
 
 /**
  * Dynamically loads the Cashfree SDK by creating a script tag.
- * This is the most compatible method and avoids build issues.
+ * This is a robust method to avoid build issues and ensure the SDK is available.
  */
 const loadCashfreeSDK = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    // If the SDK is already loaded, resolve immediately.
+    // If the SDK script is already loaded, resolve immediately.
     if (typeof (window as any).cashfree === 'object') {
       return resolve(true);
     }
@@ -29,7 +31,10 @@ const loadCashfreeSDK = (): Promise<boolean> => {
   });
 };
 
-
+/**
+ * Checks the health of the backend server.
+ * @returns {Promise<boolean>} - True if the backend is online, false otherwise.
+ */
 const checkBackendHealth = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${API_URL}/api/health`);
@@ -42,8 +47,14 @@ const checkBackendHealth = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Creates a payment order on the backend.
+ * @param {any} orderData - The data for creating the payment order.
+ * @returns {Promise<any>} - The response from the backend.
+ */
 const createPaymentOrder = async (orderData: any): Promise<any> => {
-  const response = await fetch(`${API_URL}/api/create-payment-order, {
+  // FIX: Corrected the fetch call syntax. The URL and options object are now correctly passed as separate arguments.
+  const response = await fetch(`${API_URL}/api/create-payment-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
@@ -85,7 +96,7 @@ const Register: React.FC = () => {
   const [postPaymentError, setPostPaymentError] = React.useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
   const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
-  
+
   const [formData, setFormData] = React.useState<FormData>({
     teamName: '',
     teamSize: 2,
@@ -107,7 +118,7 @@ const Register: React.FC = () => {
 
       if (isBackendOnline) {
         try {
-          // Load the SDK when the component mounts and backend is online.
+          // Load the payment SDK when the component mounts and the backend is confirmed to be online.
           await loadCashfreeSDK();
           console.log('Cashfree SDK loaded successfully.');
         } catch (error) {
@@ -120,7 +131,7 @@ const Register: React.FC = () => {
     };
     initializeServices();
   }, []);
-  
+
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
     { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone },
@@ -145,6 +156,7 @@ const Register: React.FC = () => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
 
+    // Auto-fill the grade for other members based on the team leader's grade.
     if (index === 0 && field === 'grade') {
       for (let i = 1; i < formData.teamSize; i++) {
         newMembers[i] = { ...newMembers[i], grade: value };
@@ -172,14 +184,14 @@ const Register: React.FC = () => {
 
     return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
   };
-  
+
   const handlePayment = async () => {
-    // ✨ 1. ADDED: Final, robust validation before sending the payment request.
+    // Final, robust validation before sending the payment request.
     const leader = formData.members[0];
     if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
       setValidationError("Team Leader's details (Full Name, Email, Phone) are incomplete. Please go back and fill them out.");
       // Set the step back to the user details page for convenience.
-      setCurrentStep(3); 
+      setCurrentStep(3);
       return;
     }
 
@@ -203,8 +215,6 @@ const Register: React.FC = () => {
         }
       };
       
-      // ✨ 2. ADDED: A console log to show you the exact data being sent.
-      // This helps with debugging if the error persists.
       console.log("Sending order data to backend:", orderData);
 
       const sessionResponse = await createPaymentOrder(orderData);
@@ -246,7 +256,7 @@ const Register: React.FC = () => {
         },
       };
       
-      cashfree.drop(dropinConfig);
+      cashfree.drop(document.getElementById("payment-form"), dropinConfig);
 
     } catch (error: any) {
       setValidationError(error.message || "Could not connect to the payment gateway.");
@@ -383,6 +393,7 @@ const Register: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
           >
+             <div id="payment-form"></div>
             {currentStep === 1 && (
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -751,5 +762,3 @@ const Register: React.FC = () => {
 };
 
 export default Register;
-
-
