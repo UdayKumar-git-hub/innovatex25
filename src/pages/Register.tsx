@@ -9,7 +9,7 @@ import {
 // --- Helper Functions ---
 
 // Hardcoding the URL to fix the `import.meta.env` build error.
-const API_URL = 'https://www.reelhaus.in';
+//const API_URL = 'https://www.reelhaus.in';
 
 /**
  * Dynamically loads the Cashfree SDK by creating a script tag.
