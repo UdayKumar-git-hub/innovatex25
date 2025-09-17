@@ -1,4 +1,5 @@
 import React from 'react';
+// The only change is here: using BrowserRouter for cleaner URLs
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import Header from './components/Header';
@@ -36,4 +37,3 @@ function App() {
 }
 
 export default App;
-
