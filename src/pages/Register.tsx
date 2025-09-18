@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import {
   Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
   ChevronLeft, Check, Star, Mail, Phone, User, Sparkles, PartyPopper, Instagram, Upload, AlertTriangle
-} 
-from 'lucide-react';
+} from 'lucide-react';
 
 // --- Supabase Configuration ---
 const SUPABASE_URL = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfeE';
 
-// We must wait for the script to load before creating the clien
-let supabase: SupabaseClient | null = null;
+// We must wait for the script to load before creating the client.
+let supabase = null;
+
 // --- Main Component ---
 const Register = () => {
   const [currentStep, setCurrentStep] = React.useState(1);
