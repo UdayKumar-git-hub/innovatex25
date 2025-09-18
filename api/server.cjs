@@ -1,56 +1,58 @@
+// api/server.cjs
+
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs/promises");
-const path = require("path");
-const crypto = require("crypto");
 require("dotenv").config();
-
+// Use dynamic import for node-fetch
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
-// --- CORS CONFIG: Only reelhaus.in ---
+// --- CONFIGURATION ---
+
+// Whitelist now ONLY contains your primary domain.
+const allowedOrigins = [
+  'https://reelhaus.in'
+];
+
+// --- MIDDLEWARE ---
+
+// Updated CORS configuration
 app.use(cors({
-  origin: "https://reelhaus.in",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    
+    // Normalize origin by removing trailing slash if it exists
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      // If the origin is in our whitelist, allow it
+      callback(null, true);
+    } else {
+      // Otherwise, block it
+      callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+    }
+  }
 }));
 
-// --- Middleware ---
 app.use(express.json());
 
-const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
+// --- ROUTES ---
 
-// --- Helper Functions ---
-const getRegistrations = async () => {
-  try {
-    await fs.access(REGISTRATIONS_DB_PATH);
-    const data = await fs.readFile(REGISTRATIONS_DB_PATH, "utf-8");
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveRegistration = async (newRegistration) => {
-  const registrations = await getRegistrations();
-  registrations.push(newRegistration);
-  await fs.writeFile(REGISTRATIONS_DB_PATH, JSON.stringify(registrations, null, 2));
-};
-
-// --- API Routes ---
-
-// Health check route (frontend-friendly)
+// Health Check Route
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ status: "ok", message: "Backend running successfully!" });
+  res.json({ status: "ok", message: "Backend is healthy" });
 });
 
-// Payment order route
-app.post("/create-payment-order", async (req, res) => {
+// Payment Creation Route
+app.post("/api/create-payment-order", async (req, res) => {
   const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
   const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+  const FRONTEND_URL = "https://reelhaus.in"; // Hardcoded to your primary domain
+
   const CASHFREE_API_URL =
     API_ENV === "production"
       ? "https://api.cashfree.com/pg"
@@ -62,7 +64,6 @@ app.post("/create-payment-order", async (req, res) => {
       return res.status(400).json({ message: "Missing required order details" });
     }
 
-    const uniqueOrderId = `INX25-${crypto.randomUUID()}`;
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: "POST",
       headers: {
@@ -72,12 +73,12 @@ app.post("/create-payment-order", async (req, res) => {
         "x-api-version": "2022-09-01",
       },
       body: JSON.stringify({
-        order_id: uniqueOrderId,
+        order_id: `INNOVATEX-SVR-${Date.now()}`,
         order_amount,
         order_currency: "INR",
         customer_details,
         order_meta: {
-          return_url: `${req.headers.origin}/success?order_id={order_id}`,
+          return_url: `${FRONTEND_URL}/success?order_id={order_id}`,
         },
       }),
     });
@@ -87,32 +88,22 @@ app.post("/create-payment-order", async (req, res) => {
       console.error("Cashfree API Error:", data);
       return res
         .status(response.status)
-        .json({ message: data.message || "Failed to create order" });
+        .json({ message: data.message || "Failed to create payment order with Cashfree" });
     }
-
     res.status(200).json(data);
   } catch (err) {
-    console.error("Error in /create-payment-order:", err);
+    console.error("Internal Server Error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-// Registration route
-app.post("/register", async (req, res) => {
-  try {
-    const registrationData = req.body;
-    if (!registrationData.teamName || !registrationData.members || !registrationData.payment_id) {
-      return res.status(400).json({ message: "Required fields are missing." });
-    }
+// --- SERVER INITIALIZATION ---
 
-    const finalData = { ...registrationData, server_timestamp: new Date().toISOString() };
-    await saveRegistration(finalData);
-    console.log(`Successfully registered team: ${registrationData.teamName}`);
-    res.status(201).json({ success: true, message: "Registration successful!" });
-  } catch (err) {
-    console.error("Error in /register:", err);
-    res.status(500).json({ message: "Failed to save registration data." });
-  }
+// This part is for local development. Render will use its own start command.
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running locally on port ${PORT}`);
 });
 
+// Export the app for serverless environments or as a module for Render
 module.exports = app;
