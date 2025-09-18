@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useState } from 'react';
+import React, { useReducer, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
@@ -9,10 +9,15 @@ import {
 // --- Configuration ---
 
 // Connects to the backend service.
-const API_URL = "https://innovatex25.onrender.com"; 
+const API_URL = "https://innovatex25.onrender.com";
 
 // The application will run in MOCK_API mode if API_URL is not set.
 const MOCK_API = !API_URL;
+
+// --- FIX: Moved constant outside the component ---
+// This prevents it from being recreated on every render and satisfies linter rules
+// for useEffect dependencies without needing to add it to the dependency array.
+const earlyBirdDeadline = new Date('2025-10-15T23:59:59');
 
 
 // --- Type Definitions & Interfaces ---
@@ -340,10 +345,10 @@ const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, po
             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CreditCard className="w-6 h-6 mr-3 text-yellow-500" /> Registration Fee & Payment</h2>
             <div className="space-y-6">
                 {postPaymentError && <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex items-start"><AlertTriangle className='h-5 w-5 mr-3 flex-shrink-0'/><p><span className="font-bold">Payment Error:</span> {postPaymentError}</p></div>}
-                
+
                 <AnimatePresence>
                     {isEarlyBirdActive && (
-                         <motion.div 
+                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
@@ -406,10 +411,7 @@ const Register = () => {
     const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
     const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-    
-    // --- IMPROVEMENT: Dynamic Early Bird Pricing ---
     const [isEarlyBirdActive, setIsEarlyBirdActive] = useState(false);
-    const earlyBirdDeadline = new Date('2025-10-15T23:59:59');
 
     useEffect(() => {
         const initializeServices = async () => {
@@ -433,9 +435,12 @@ const Register = () => {
             }
         };
         initializeServices();
+        // --- FIX: This useEffect hook runs only once on component mount. ---
+        // Since `earlyBirdDeadline` is now a constant outside the component,
+        // the dependency array can safely be empty. This satisfies the linter rules.
     }, []);
 
-    const calculateTotal = () => {
+    const calculateTotal = useCallback(() => {
         const basePrice = isEarlyBirdActive ? 449 : 499;
         const teamDiscount = isEarlyBirdActive ? 50 : 0;
         const platformFeeRate = 0.05;
@@ -446,7 +451,8 @@ const Register = () => {
         const total = priceAfterDiscount + platformFee;
 
         return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
-    };
+    }, [isEarlyBirdActive, formData.teamSize]);
+
 
     const handlePayment = async () => {
         const leader = formData.members[0];
@@ -475,12 +481,12 @@ const Register = () => {
                     customer_name: formData.members[0].fullName,
                 }
             };
-            
+
             const sessionResponse = await createPaymentOrder(orderData);
             const { payment_session_id, order_id } = sessionResponse;
 
             if (!payment_session_id) throw new Error("Failed to create payment session.");
-            
+
             const onSuccess = async (data: any) => {
                 if (data.order && data.order.status === 'PAID') {
                     const paymentId = data.order.payment_id;
@@ -490,7 +496,7 @@ const Register = () => {
                         order_id: order_id,
                         total_amount: paymentDetails.total
                     };
-                    
+
                     try {
                         // Persist final data to the backend
                         await saveRegistrationData(fullRegistrationData);
@@ -534,7 +540,7 @@ const Register = () => {
         }
     };
 
-    const isStepValid = () => {
+    const isStepValid = useCallback(() => {
         switch (currentStep) {
             case 1: return formData.teamName.trim() !== '';
             case 2: return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
@@ -548,7 +554,7 @@ const Register = () => {
             case 5: return formData.agreedToRules;
             default: return false;
         }
-    };
+    }, [currentStep, formData, hasFollowedInstagram]);
 
     const nextStep = () => {
         if (isStepValid()) {
@@ -588,7 +594,7 @@ const Register = () => {
                 </motion.div>
 
                 <StepIndicator currentStep={currentStep} />
-                
+
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentStep}
@@ -602,7 +608,7 @@ const Register = () => {
                         {renderCurrentStep()}
                     </motion.div>
                 </AnimatePresence>
-                
+
                 <div className="flex justify-between mt-8">
                     <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center px-6 py-3 bg-gray-200 rounded-lg font-semibold disabled:opacity-50 hover:bg-gray-300"><ChevronLeft className="w-5 h-5 mr-2" />Previous</button>
                     {currentStep < 5 ? (
@@ -628,4 +634,3 @@ const Register = () => {
 };
 
 export default Register;
-
