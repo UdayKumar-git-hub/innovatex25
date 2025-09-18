@@ -11,13 +11,14 @@ const fetch = (...args) =>
 const app = express();
 
 // --- Configuration ---
+// --- FIX: Create a whitelist of allowed domains for CORS ---
 const allowedOrigins = [
-    'https://reelhaus.in',
-    'https://rhinnovatex.netlify.app',
-    process.env.FRONTEND_URL,
-    'http://localhost:3000',
-    'http://localhost:5173'
-].filter(Boolean);
+    'https://reelhaus.in', // Your new production domain
+    'https://rhinnovatex.netlify.app', // Your old domain
+    process.env.FRONTEND_URL, // Keep support for the environment variable
+    'http://localhost:3000', // For local development
+    'http://localhost:5173'  // For local Vite/React development
+].filter(Boolean); // Filter out undefined/null values from the array
 
 
 const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
@@ -25,8 +26,10 @@ const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
 // --- Middleware ---
 app.use(express.json());
 
+// --- FIX: Updated CORS configuration to use the whitelist ---
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like Postman, server-to-server) or from whitelisted domains
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -57,20 +60,13 @@ const saveRegistration = async (newRegistration) => {
 
 // --- API Routes ---
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is healthy on Render!" });
+  res.json({ status: "ok", message: "Server is healthy" });
 });
 
 app.post("/create-payment-order", async (req, res) => {
+  const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
   const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
-  
-  // --- IMPROVEMENT: Validate that API keys are configured on the server ---
-  if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
-      console.error("FATAL: Cashfree API credentials are not configured on the server.");
-      return res.status(500).json({ message: "Payment service is not configured correctly. Please contact support." });
-  }
-
-  const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_API_URL =
     API_ENV === "production"
       ? "https://api.cashfree.com/pg"
@@ -97,6 +93,7 @@ app.post("/create-payment-order", async (req, res) => {
         order_currency: "INR",
         customer_details,
         order_meta: {
+          // Use the origin from the request for the return URL for flexibility
           return_url: `${req.headers.origin}/success?order_id={order_id}`,
         },
       }),
@@ -132,8 +129,5 @@ app.post("/register", async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running and listening on port ${PORT}`);
-});
+module.exports = app;
 
