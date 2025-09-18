@@ -10,59 +10,43 @@ const fetch = (...args) =>
 
 const app = express();
 
-// --- Configuration ---
-// --- FIX: Create a whitelist of allowed domains for CORS ---
-const allowedOrigins = [
-    'https://reelhaus.in', // Your new production domain
-    'https://rhinnovatex.netlify.app', // Your old domain
-    process.env.FRONTEND_URL, // Keep support for the environment variable
-    'http://localhost:3000', // For local development
-    'http://localhost:5173'  // For local Vite/React development
-].filter(Boolean); // Filter out undefined/null values from the array
-
-
-const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
+// --- CORS CONFIG: Only reelhaus.in ---
+app.use(cors({
+  origin: "https://reelhaus.in",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
 // --- Middleware ---
 app.use(express.json());
 
-// --- FIX: Updated CORS configuration to use the whitelist ---
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like Postman, server-to-server) or from whitelisted domains
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy: The origin '${origin}' is not allowed.`));
-    }
-  },
-  credentials: true,
-}));
-
+const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
 
 // --- Helper Functions ---
 const getRegistrations = async () => {
-    try {
-        await fs.access(REGISTRATIONS_DB_PATH);
-        const data = await fs.readFile(REGISTRATIONS_DB_PATH, "utf-8");
-        return data ? JSON.parse(data) : [];
-    } catch (error) {
-        return [];
-    }
+  try {
+    await fs.access(REGISTRATIONS_DB_PATH);
+    const data = await fs.readFile(REGISTRATIONS_DB_PATH, "utf-8");
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 };
 
 const saveRegistration = async (newRegistration) => {
-    const registrations = await getRegistrations();
-    registrations.push(newRegistration);
-    await fs.writeFile(REGISTRATIONS_DB_PATH, JSON.stringify(registrations, null, 2));
+  const registrations = await getRegistrations();
+  registrations.push(newRegistration);
+  await fs.writeFile(REGISTRATIONS_DB_PATH, JSON.stringify(registrations, null, 2));
 };
 
-
 // --- API Routes ---
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is healthy" });
+
+// Health check route (frontend-friendly)
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Backend running successfully!" });
 });
 
+// Payment order route
 app.post("/create-payment-order", async (req, res) => {
   const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
@@ -93,7 +77,6 @@ app.post("/create-payment-order", async (req, res) => {
         order_currency: "INR",
         customer_details,
         order_meta: {
-          // Use the origin from the request for the return URL for flexibility
           return_url: `${req.headers.origin}/success?order_id={order_id}`,
         },
       }),
@@ -101,11 +84,12 @@ app.post("/create-payment-order", async (req, res) => {
 
     const data = await response.json();
     if (!response.ok) {
-        console.error("Cashfree API Error:", data);
-        return res
-            .status(response.status)
-            .json({ message: data.message || "Failed to create order with payment provider" });
+      console.error("Cashfree API Error:", data);
+      return res
+        .status(response.status)
+        .json({ message: data.message || "Failed to create order" });
     }
+
     res.status(200).json(data);
   } catch (err) {
     console.error("Error in /create-payment-order:", err);
@@ -113,21 +97,22 @@ app.post("/create-payment-order", async (req, res) => {
   }
 });
 
+// Registration route
 app.post("/register", async (req, res) => {
-    try {
-        const registrationData = req.body;
-        if (!registrationData.teamName || !registrationData.members || !registrationData.payment_id) {
-            return res.status(400).json({ message: "Invalid registration data. Required fields are missing." });
-        }
-        const finalData = { ...registrationData, server_timestamp: new Date().toISOString() };
-        await saveRegistration(finalData);
-        console.log(`Successfully registered team: ${registrationData.teamName}`);
-        res.status(201).json({ success: true, message: "Registration successful!" });
-    } catch(err) {
-        console.error("Error in /register:", err);
-        res.status(500).json({ message: "Failed to save registration data due to a server error." });
+  try {
+    const registrationData = req.body;
+    if (!registrationData.teamName || !registrationData.members || !registrationData.payment_id) {
+      return res.status(400).json({ message: "Required fields are missing." });
     }
+
+    const finalData = { ...registrationData, server_timestamp: new Date().toISOString() };
+    await saveRegistration(finalData);
+    console.log(`Successfully registered team: ${registrationData.teamName}`);
+    res.status(201).json({ success: true, message: "Registration successful!" });
+  } catch (err) {
+    console.error("Error in /register:", err);
+    res.status(500).json({ message: "Failed to save registration data." });
+  }
 });
 
 module.exports = app;
-
