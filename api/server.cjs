@@ -3,67 +3,62 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-// Use dynamic import for node-fetch
+
+// Dynamically import node-fetch, which is an ESM module
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
-// --- CONFIGURATION ---
-
-// Whitelist now ONLY contains your primary domain.
-const allowedOrigins = [
-  'https://reelhaus.in'
-];
-
 // --- MIDDLEWARE ---
 
-// Updated CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like Postman, server-to-server)
-    if (!origin) return callback(null, true);
-    
-    // Normalize origin by removing trailing slash if it exists
-    const normalizedOrigin = origin.replace(/\/$/, '');
+// Use CORS. Since the frontend is served from the same Vercel domain,
+// requests to /api/* are same-origin. This simple setup is robust
+// for Vercel's environment, including preview deployments.
+app.use(cors());
 
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      // If the origin is in our whitelist, allow it
-      callback(null, true);
-    } else {
-      // Otherwise, block it
-      callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
-    }
-  }
-}));
-
+// Parse JSON bodies for POST requests
 app.use(express.json());
 
-// --- ROUTES ---
 
-// Health Check Route
+// --- API ROUTES ---
+
+// Health Check Endpoint: Confirms the server is running.
+// Accessible at https://reelhaus.in/api/health
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend is healthy" });
+  res.status(200).json({ status: "ok", message: "Backend is healthy" });
 });
 
-// Payment Creation Route
+// Payment Order Creation Endpoint
+// Accessible at https://reelhaus.in/api/create-payment-order
 app.post("/api/create-payment-order", async (req, res) => {
+  // Load environment variables securely
   const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
   const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
-  const FRONTEND_URL = "https://reelhaus.in"; // Hardcoded to your primary domain
+  const FRONTEND_URL = "https://reelhaus.in"; // Your production frontend URL for Cashfree's return_url
 
+  // Determine Cashfree API endpoint based on environment
   const CASHFREE_API_URL =
     API_ENV === "production"
       ? "https://api.cashfree.com/pg"
       : "https://sandbox.cashfree.com/pg";
 
+  // Validate that server environment variables are set
+  if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
+      console.error("FATAL: Missing Cashfree credentials in environment variables.");
+      return res.status(500).json({ message: "Server configuration error." });
+  }
+
   try {
     const { order_amount, customer_details } = req.body;
+
+    // Input validation
     if (!order_amount || !customer_details) {
-      return res.status(400).json({ message: "Missing required order details" });
+      return res.status(400).json({ message: "Missing required order details from frontend" });
     }
 
+    // Make the request to Cashfree's API
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: "POST",
       headers: {
@@ -78,32 +73,32 @@ app.post("/api/create-payment-order", async (req, res) => {
         order_currency: "INR",
         customer_details,
         order_meta: {
+          // This is the URL where Cashfree will redirect the user after payment
           return_url: `${FRONTEND_URL}/success?order_id={order_id}`,
         },
       }),
     });
 
     const data = await response.json();
+
+    // Handle non-successful responses from Cashfree
     if (!response.ok) {
       console.error("Cashfree API Error:", data);
       return res
         .status(response.status)
-        .json({ message: data.message || "Failed to create payment order with Cashfree" });
+        .json({ message: data.message || "Failed to create payment order via Cashfree" });
     }
+
+    // Send successful response back to the frontend
     res.status(200).json(data);
   } catch (err) {
-    console.error("Internal Server Error:", err);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Internal Server Error in /api/create-payment-order:", err);
+    res.status(500).json({ message: "An internal server error occurred" });
   }
 });
 
-// --- SERVER INITIALIZATION ---
 
-// This part is for local development. Render will use its own start command.
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running locally on port ${PORT}`);
-});
-
-// Export the app for serverless environments or as a module for Render
+// --- VERCEL EXPORT ---
+// This line is essential for Vercel to handle the Express app correctly
+// as a serverless function. Do not add app.listen() here.
 module.exports = app;
