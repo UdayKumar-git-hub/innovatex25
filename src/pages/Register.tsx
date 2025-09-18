@@ -454,91 +454,98 @@ const Register = () => {
     }, [isEarlyBirdActive, formData.teamSize]);
 
 
-    const handlePayment = async () => {
-        const leader = formData.members[0];
-        if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
-            setValidationError("Team Leader's details are incomplete. Please go back and fill them out.");
-            setCurrentStep(3);
-            return;
-        }
+const handlePayment = async () => {
+    const leader = formData.members[0];
 
-        if (backendStatus !== 'online') {
-            setValidationError("Payment services are currently unavailable.");
-            return;
-        }
-        setValidationError('');
-        setPostPaymentError('');
-        setIsLoading(true);
+    // Step 1: Basic validation for team leader
+    if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
+        setValidationError("Team Leader's details are incomplete. Please go back and fill them out.");
+        setCurrentStep(3);
+        return;
+    }
 
-        try {
-            const paymentDetails = calculateTotal();
-            const orderData = {
-                order_amount: parseFloat(paymentDetails.total.toFixed(2)),
-                customer_details: {
-                    customer_id: `CUST-${Date.now()}`,
-                    customer_email: formData.members[0].email,
-                    customer_phone: formData.members[0].phoneNumber,
-                    customer_name: formData.members[0].fullName,
-                }
-            };
+    // Step 2: Check backend status
+    if (backendStatus !== 'online') {
+        setValidationError("Payment services are currently unavailable.");
+        return;
+    }
 
-            const sessionResponse = await createPaymentOrder(orderData);
-            const { payment_session_id, order_id } = sessionResponse;
+    setValidationError('');
+    setPostPaymentError('');
+    setIsLoading(true);
 
-            if (!payment_session_id) throw new Error("Failed to create payment session.");
-
-            const onSuccess = async (data: any) => {
-                if (data.order && data.order.status === 'PAID') {
-                    const paymentId = data.order.payment_id;
-                    const fullRegistrationData = {
-                        ...formData,
-                        payment_id: paymentId,
-                        order_id: order_id,
-                        total_amount: paymentDetails.total
-                    };
-
-                    try {
-                        // Persist final data to the backend
-                        await saveRegistrationData(fullRegistrationData);
-                        setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
-                        setRegistrationComplete(true);
-                    } catch (saveError) {
-                        setPostPaymentError(`Your payment was successful, but we couldn't save your registration. Please contact support with Payment ID: ${paymentId}. Error: ${(saveError as Error).message}`);
-                    }
-                } else {
-                    setPostPaymentError("Payment status was not successful. Please contact support.");
-                }
-                setIsLoading(false);
-            };
-
-            const onFailure = (data: any) => {
-                setIsLoading(false);
-                setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
-            };
-
-            if (MOCK_API) {
-                // In mock mode, simulate a successful payment after a short delay
-                console.log("MOCK MODE: Simulating Cashfree payment flow.");
-                setTimeout(() => {
-                    onSuccess({ order: { status: 'PAID', payment_id: 'mock_payment_id_xyz789' } });
-                }, 2000);
-            } else {
-                // Real payment flow
-                const cashfree = new (window as any).cashfree.Cashfree();
-                const dropinConfig = {
-                    components: ["order-details", "card", "upi", "netbanking"],
-                    paymentSessionId: payment_session_id,
-                    onSuccess,
-                    onFailure,
-                };
-                cashfree.drop(document.getElementById("payment-form"), dropinConfig);
+    try {
+        // Step 3: Calculate total
+        const paymentDetails = calculateTotal();
+        const orderData = {
+            order_amount: parseFloat(paymentDetails.total.toFixed(2)),
+            customer_details: {
+                customer_id: `CUST-${Date.now()}`,
+                customer_email: leader.email,
+                customer_phone: leader.phoneNumber,
+                customer_name: leader.fullName,
             }
+        };
 
-        } catch (error: any) {
-            setValidationError(error.message || "Could not connect to the payment gateway.");
+        // Step 4: Create payment order on backend
+        const sessionResponse = await createPaymentOrder(orderData);
+        const { payment_session_id, order_id } = sessionResponse;
+
+        if (!payment_session_id) throw new Error("Failed to create payment session.");
+
+        // Step 5: Check if Cashfree SDK is loaded
+        if (!window.cashfree) {
+            setValidationError("Payment gateway is not ready. Please wait a moment and try again or check your ad-blocker.");
             setIsLoading(false);
+            return;
         }
-    };
+
+        // Step 6: Configure callbacks
+        const onSuccess = async (data: any) => {
+            setIsLoading(false);
+            if (data.order && data.order.status === 'PAID') {
+                const paymentId = data.order.payment_id;
+                const fullRegistrationData = {
+                    ...formData,
+                    members: formData.members.slice(0, formData.teamSize),
+                    payment_id: paymentId,
+                    order_id: order_id,
+                    total_amount: paymentDetails.total
+                };
+
+                try {
+                    await saveRegistrationData(fullRegistrationData);
+                    setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
+                    setRegistrationComplete(true);
+                } catch (saveError) {
+                    setPostPaymentError(`Payment successful, but registration could not be saved. Please contact support. Payment ID: ${paymentId}. Error: ${(saveError as Error).message}`);
+                }
+            } else {
+                setPostPaymentError("Payment status was not successful. Please contact support.");
+            }
+        };
+
+        const onFailure = (data: any) => {
+            setIsLoading(false);
+            setPostPaymentError(`Payment failed: ${data.order?.error_text || 'Unknown error'}. Please try again.`);
+        };
+
+        // Step 7: Initialize Cashfree drop-in
+        const dropinConfig = {
+            components: ["order-details", "card", "upi", "netbanking"],
+            paymentSessionId: payment_session_id,
+            onSuccess,
+            onFailure,
+        };
+
+        window.cashfree.drop(document.getElementById("payment-form"), dropinConfig);
+
+    } catch (error: any) {
+        setValidationError(error.message || "Could not connect to the payment gateway.");
+        setIsLoading(false);
+    }
+};
+
 
     const isStepValid = useCallback(() => {
         switch (currentStep) {
