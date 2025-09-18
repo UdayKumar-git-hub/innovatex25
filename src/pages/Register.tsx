@@ -10,8 +10,7 @@ import {
 const SUPABASE_URL = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfeE';
 
-// We must wait for the script to load before creating the client.
-let supabase = null;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- Main Component ---
 const Register = () => {
@@ -41,20 +40,6 @@ const Register = () => {
     agreedToRules: false
   });
 
-  // Load the Supabase SDK from CDN
-  React.useEffect(() => {
-    if (!window.supabase) {
-      const script = document.createElement('script');
-      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-      script.async = true;
-      script.onload = () => {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      };
-      document.body.appendChild(script);
-    } else {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-  }, []);
 
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
@@ -99,52 +84,73 @@ const Register = () => {
     return formData.teamSize * 499;
   };
 
-  const handleFinalSubmission = async () => {
-    if (!paymentScreenshot || !transactionId.trim()) {
-      setValidationError("Please upload a payment screenshot and enter the transaction ID.");
-      return;
+  const uploadScreenshot = async (file) => {
+  if (!file) return null;
+
+  const filePath = `screenshots/${Date.now()}_${file.name}`;
+
+  const { data, error } = await supabase.storage
+    .from("payments") // bucket name in Supabase Storage
+    .upload(filePath, file);
+
+  if (error) {
+    console.error("Upload error:", error.message);
+    return null;
+  }
+
+  // Get public URL
+  const { data: publicUrl } = supabase.storage
+    .from("payments")
+    .getPublicUrl(filePath);
+
+  return publicUrl.publicUrl;
+};
+
+
+ const handleFinalSubmission = async () => {
+  if (!paymentScreenshot || !transactionId.trim()) {
+    setValidationError("Please upload a payment screenshot and enter the transaction ID.");
+    return;
+  }
+
+  setIsLoading(true);
+  setValidationError("");
+
+  try {
+    // Upload screenshot first
+    const screenshotUrl = await uploadScreenshot(paymentScreenshot);
+
+    if (!screenshotUrl) {
+      throw new Error("Failed to upload payment screenshot.");
     }
-    setValidationError('');
-    setIsLoading(true);
 
-    try {
-      if (!supabase) {
-        throw new Error('Supabase client not initialized. Please try again.');
-      }
+    const registrationData = {
+      team_name: formData.teamName,
+      team_size: formData.teamSize,
+      challenges: formData.challenges,
+      grade: formData.members[0].grade,
+      interests: formData.interests,
+      other_interest: formData.otherInterest,
+      superpower: formData.superpower,
+      members: formData.members.slice(0, formData.teamSize),
+      payment_id: transactionId,
+      total_amount: calculateTotal(),
+      screenshot_url: screenshotUrl, // ✅ Save file URL
+    };
 
-      const registrationData = {
-        team_name: formData.teamName,
-        team_size: formData.teamSize,
-        challenges: formData.challenges,
-        grade: formData.members[0].grade,
-        interests: formData.interests,
-        other_interest: formData.otherInterest,
-        superpower: formData.superpower,
-        members: formData.members.slice(0, formData.teamSize),
-        payment_id: transactionId,
-        total_amount: calculateTotal(),
-      };
+    const { error } = await supabase.from("registrations").insert([registrationData]);
+    if (error) throw error;
 
-      const { data, error } = await supabase
-        .from('registrations')
-        .insert([registrationData])
-        .select();
+    setRegistrationComplete(true);
+    setFinalTeamName(formData.teamName);
+  } catch (error) {
+    console.error(error);
+    setValidationError("Failed to submit registration. Please try again or contact support.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message);
-      }
-      
-      setRegistrationComplete(true);
-      setFinalTeamName(formData.teamName);
-
-    } catch (error) {
-      setValidationError("Failed to submit registration. Please try again or contact support.");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const isStepValid = () => {
     switch (currentStep) {
