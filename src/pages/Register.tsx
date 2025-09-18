@@ -2,17 +2,27 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js'; // ✅ import SupabaseClient
 import {
   Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
   ChevronLeft, Check, Star, Mail, Phone, User, Sparkles, PartyPopper, Instagram, Upload, AlertTriangle
 } from 'lucide-react';
 
-// ✅ Use Environment Variables (set in .env.local + Vercel Dashboard)
+// Environment variables
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ✅ Only declare once, use SupabaseClient type
+let supabase: SupabaseClient | null = null;
+let supabaseError: string | null = null;
+
+// Conditionally initialize Supabase
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  supabaseError = "Supabase URL or ANON key is missing. Check your .env.local file.";
+} else {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
 
 // --- Main Component ---
 const Register = () => {
