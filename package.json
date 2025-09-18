@@ -3,15 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
- "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview",
-  "backend-dev": "nodemon api/server.cjs",
-  "vercel-build": "npm run build",
-  "start": "node api/server.cjs"
-}
-,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "backend-dev": "nodemon api/server.cjs",
+    "vercel-build": "npm run build",
+    "start": "node api/server.cjs"
+  },
   "dependencies": {
     "@cashfreepayments/cashfree-js": "^1.0.5",
     "cors": "^2.8.5",
