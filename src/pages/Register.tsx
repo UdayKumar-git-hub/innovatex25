@@ -353,6 +353,7 @@ const App = () => {
     const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
     const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+    const [sdkStatus, setSdkStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
     useEffect(() => {
         const initializeServices = async () => {
@@ -361,15 +362,19 @@ const App = () => {
             setBackendStatus(isBackendOnline ? 'online' : 'offline');
 
             if (isBackendOnline) {
+                setSdkStatus('loading');
                 try {
                     await loadCashfreeSDK();
                     console.log('Cashfree SDK loaded successfully.');
+                    setSdkStatus('ready');
                 } catch (error) {
                     console.error('Failed to initialize payment SDK:', error);
                     setValidationError((error as Error).message);
+                    setSdkStatus('error');
                 }
             } else {
                 setValidationError('Could not connect to the server. Please try again later.');
+                setSdkStatus('error');
             }
         };
         initializeServices();
@@ -399,12 +404,9 @@ const App = () => {
             return;
         }
 
-        // FIX: Check if the Cashfree SDK is loaded before proceeding.
-        // This prevents the "Cannot read properties of undefined (reading 'Cashfree')" error.
-        if (typeof (window as any).cashfree !== 'object') {
-            setValidationError("Payment gateway is not ready. Please wait a moment and try again or check your ad-blocker.");
-            // Optionally, try to load it again in case of a network glitch
-            loadCashfreeSDK().catch(err => console.error("Failed to re-load Cashfree SDK:", err));
+        // FIX: Check SDK status using state instead of direct window check.
+        if (sdkStatus !== 'ready') {
+            setValidationError("Payment gateway is not ready. This could be due to a network issue or an ad-blocker. Please wait a moment or try refreshing the page.");
             return;
         }
 
@@ -551,8 +553,16 @@ const App = () => {
                     {currentStep < 5 ? (
                         <button onClick={nextStep} disabled={!isStepValid()} className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 disabled:opacity-50">Next<ChevronRight className="w-5 h-5 ml-2" /></button>
                     ) : (
-                        <button onClick={handlePayment} disabled={!formData.agreedToRules || isLoading || backendStatus !== 'online'} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold w-60 hover:bg-green-600 disabled:opacity-50">
-                            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <>{backendStatus !== 'online' ? 'Service Unavailable' : 'Proceed to Payment'}<CreditCard className="w-5 h-5 ml-2" /></>}
+                        <button onClick={handlePayment} disabled={!formData.agreedToRules || isLoading || backendStatus !== 'online' || sdkStatus !== 'ready'} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold w-60 hover:bg-green-600 disabled:opacity-50 transition-colors">
+                            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : (
+                                <>
+                                    {backendStatus !== 'online' ? 'Service Unavailable' :
+                                     sdkStatus === 'loading' ? 'Initializing Payment...' :
+                                     sdkStatus === 'error' ? 'Payment Gateway Error' :
+                                     'Proceed to Payment'}
+                                    <CreditCard className="w-5 h-5 ml-2" />
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
@@ -571,3 +581,4 @@ const App = () => {
 };
 
 export default App;
+
