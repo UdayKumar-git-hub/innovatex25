@@ -27,17 +27,7 @@ const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
 app.use(express.json());
 
 // --- FIX: Updated CORS configuration to use the whitelist ---
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like Postman, server-to-server) or from whitelisted domains
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy: The origin '${origin}' is not allowed.`));
-    }
-  },
-  credentials: true,
-}));
+app.use(cors)
 
 
 // --- Helper Functions ---
