@@ -2,123 +2,32 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
-  ChevronLeft, Check, Star, Mail, Phone, User, CreditCard,
-  Sparkles, PartyPopper, AlertTriangle, Instagram
+  ChevronLeft, Check, Star, Mail, Phone, User, Sparkles, PartyPopper, Instagram, Upload, AlertTriangle
 } from 'lucide-react';
 
-// --- Helper Functions ---
+// --- Supabase Configuration ---
+const SUPABASE_URL = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfeE';
 
-// The base URL for your backend server, read from your frontend's .env file.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-
-/**
- * Dynamically and robustly loads the real Cashfree SDK script from their server.
- * @returns {Promise<boolean>} A promise that resolves on success or rejects on failure.
- */
-const loadCashfreeSDK = (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    // If SDK is already loaded, don't load it again.
-    if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-      return resolve(true);
-    }
-
-    const script = document.createElement('script');
-    script.id = 'cashfree-sdk';
-    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    document.body.appendChild(script);
-
-    const timeoutDuration = 8000; // 8 seconds
-    const pollInterval = 100;
-    let elapsedTime = 0;
-
-    const pollTimer = window.setInterval(() => {
-      if (typeof (window as any).cashfree === 'object' && (window as any).cashfree !== null) {
-        clearInterval(pollTimer);
-        script.removeEventListener('error', handleError);
-        resolve(true);
-      } else {
-        elapsedTime += pollInterval;
-        if (elapsedTime >= timeoutDuration) {
-          clearInterval(pollTimer);
-          script.removeEventListener('error', handleError);
-          reject(new Error('Cashfree SDK did not initialize. Check for ad-blockers or network issues.'));
-        }
-      }
-    }, pollInterval);
-
-    const handleError = () => {
-      clearInterval(pollTimer);
-      reject(new Error('Failed to load Cashfree SDK script. Check your internet connection.'));
-    };
-    script.addEventListener('error', handleError);
-  });
-};
-
-/**
- * Checks the health of the REAL backend server by calling its /api/health endpoint.
- * @returns {Promise<boolean>} A promise that resolves to true if the backend is online.
- */
-const checkBackendHealth = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${API_URL}/api/health`);
-    if (!response.ok) return false;
-    const data = await response.json();
-    return data.status === 'ok';
-  } catch (error) {
-    console.error("Backend health check failed:", error);
-    return false;
-  }
-};
-
-/**
- * Creates a Cashfree payment order by calling the REAL backend server.
- * @param {any} orderData - The data required to create the order.
- * @returns {Promise<any>} A promise that resolves with the payment session data from the server.
- */
-const createPaymentOrder = async (orderData: any): Promise<any> => {
-  const response = await fetch(`${API_URL}/api/create-payment-order`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to create payment order on the backend.');
-  }
-  return response.json();
-};
-
-// --- Component Interfaces ---
-interface TeamMember {
-  fullName: string;
-  grade: string;
-  email: string;
-  phoneNumber: string;
-}
-
-interface FormData {
-  teamName: string;
-  teamSize: number;
-  challenges: string[];
-  interests: string[];
-  otherInterest: string;
-  superpower: string;
-  members: TeamMember[];
-  agreedToRules: boolean;
-}
+// We must wait for the script to load before creating the client.
+let supabase = null;
 
 // --- Main Component ---
-const Register: React.FC = () => {
+const Register = () => {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState('');
   const [registrationComplete, setRegistrationComplete] = React.useState(false);
-  const [finalPaymentInfo, setFinalPaymentInfo] = React.useState({ teamName: '', paymentId: '' });
-  const [postPaymentError, setPostPaymentError] = React.useState('');
   const [hasFollowedInstagram, setHasFollowedInstagram] = React.useState(false);
-  const [backendStatus, setBackendStatus] = React.useState<'checking' | 'online' | 'offline'>('checking');
-  const [formData, setFormData] = React.useState<FormData>({
+  const [finalTeamName, setFinalTeamName] = React.useState('');
+
+  // Manual Payment State
+  const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
+  const [transactionId, setTransactionId] = React.useState('');
+  const [qrCodeSrc] = React.useState('https://placehold.co/200x200?text=Scan+to+Pay');
+  const [upiDetails] = React.useState('your_upi_id@bank');
+
+  const [formData, setFormData] = React.useState({
     teamName: '',
     teamSize: 2,
     challenges: ['ipl', 'brand', 'innovators', 'echoes'],
@@ -131,27 +40,21 @@ const Register: React.FC = () => {
     agreedToRules: false
   });
 
+  // Load the Supabase SDK from CDN
   React.useEffect(() => {
-    const initializeServices = async () => {
-      setBackendStatus('checking');
-      const isBackendOnline = await checkBackendHealth();
-      setBackendStatus(isBackendOnline ? 'online' : 'offline');
-
-      if (isBackendOnline) {
-        try {
-          await loadCashfreeSDK();
-          console.log('Cashfree SDK loaded successfully.');
-        } catch (error) {
-          console.error('Failed to initialize payment SDK:', error);
-          setValidationError((error as Error).message);
-        }
-      } else {
-        setValidationError('Could not connect to the server. Please ensure your backend is running and try again.');
-      }
-    };
-    initializeServices();
+    if (!window.supabase) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      script.async = true;
+      script.onload = () => {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      };
+      document.body.appendChild(script);
+    } else {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
   }, []);
-  
+
   const challenges = [
     { id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy },
     { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone },
@@ -168,11 +71,11 @@ const Register: React.FC = () => {
     'Business & Marketing'
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleMemberChange = (index: number, field: string, value: string) => {
+  const handleMemberChange = (index, field, value) => {
     const newMembers = [...formData.members];
     newMembers[index] = { ...newMembers[index], [field]: value };
 
@@ -184,113 +87,60 @@ const Register: React.FC = () => {
     setFormData(prev => ({ ...prev, members: newMembers }));
   };
 
-  const handleInterestToggle = (interest: string) => {
+  const handleInterestToggle = (interest) => {
     const newInterests = formData.interests.includes(interest)
       ? formData.interests.filter(i => i !== interest)
       : [...formData.interests, interest];
     handleInputChange('interests', newInterests);
   };
-
-  const calculateTotal = () => {
-    const basePrice = 449;
-    const teamDiscount = 50;
-    const platformFeeRate = 0.05;
-
-    const subtotal = basePrice * formData.teamSize;
-    const priceAfterDiscount = subtotal - teamDiscount;
-    const platformFee = priceAfterDiscount * platformFeeRate;
-    const total = priceAfterDiscount + platformFee;
-
-    return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
-  };
   
-  const handlePayment = async () => {
-    if (backendStatus !== 'online') {
-      setValidationError("Backend service is not available. Please try again later.");
-      return;
-    }
-    if (!isStepValid()) {
-      setValidationError("Please ensure you've agreed to the rules before proceeding.");
+  const calculateTotal = () => {
+    return formData.teamSize * 499;
+  };
+
+  const handleFinalSubmission = async () => {
+    if (!paymentScreenshot || !transactionId.trim()) {
+      setValidationError("Please upload a payment screenshot and enter the transaction ID.");
       return;
     }
     setValidationError('');
-    setPostPaymentError('');
     setIsLoading(true);
 
-    if (typeof (window as any).cashfree !== 'object' || (window as any).cashfree === null) {
-      setValidationError("Payment gateway failed to load. Please refresh and try again.");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const paymentDetails = calculateTotal();
-      const orderData = {
-        order_amount: parseFloat(paymentDetails.total.toFixed(2)),
-        customer_details: {
-          customer_id: `CUST-${Date.now()}`,
-          customer_email: formData.members[0].email,
-          customer_phone: formData.members[0].phoneNumber,
-          customer_name: formData.members[0].fullName,
-        }
-      };
-
-      const sessionResponse = await createPaymentOrder(orderData);
-      const { payment_session_id, order_id } = sessionResponse;
-
-      if (!payment_session_id) {
-        throw new Error("Failed to create payment session from backend.");
+      if (!supabase) {
+        throw new Error('Supabase client not initialized. Please try again.');
       }
 
-      const cashfree = new (window as any).cashfree.Cashfree();
-      
-      const dropinConfig = {
-        components: ["order-details", "card", "upi", "netbanking"],
-        paymentSessionId: payment_session_id,
-        onSuccess: (data: any) => {
-          if (data.order && data.order.status === 'PAID') {
-            const paymentId = data.order.payment_id;
-            try {
-              const registrationData = {
-                team_name: formData.teamName,
-                team_size: formData.teamSize,
-                grade: formData.members[0].grade,
-                interests: formData.interests,
-                other_interest: formData.otherInterest,
-                superpower: formData.superpower,
-                members: formData.members.slice(0, formData.teamSize),
-                payment_id: paymentId,
-                order_id: order_id, // Also save the order_id from your server
-                total_amount: paymentDetails.total
-              };
-              console.log("Registration Data to be saved:", registrationData);
-              // In a real app, you would now send this to your backend to save in a database.
-              // For now, we'll use localStorage.
-              localStorage.setItem('registrationData', JSON.stringify(registrationData));
-              
-              setFinalPaymentInfo({ teamName: formData.teamName, paymentId: paymentId });
-              setRegistrationComplete(true);
-            } catch (error: any) {
-              setPostPaymentError(`Payment successful (ID: ${paymentId}), but failed to save registration. Please contact support.`);
-            } finally {
-              setIsLoading(false);
-            }
-          } else {
-            setIsLoading(false);
-            setPostPaymentError("Payment status was not successful. Please contact support.");
-          }
-        },
-        onFailure: (data: any) => {
-          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
-          setIsLoading(false);
-        },
+      const registrationData = {
+        team_name: formData.teamName,
+        team_size: formData.teamSize,
+        challenges: formData.challenges,
+        grade: formData.members[0].grade,
+        interests: formData.interests,
+        other_interest: formData.otherInterest,
+        superpower: formData.superpower,
+        members: formData.members.slice(0, formData.teamSize),
+        payment_id: transactionId,
+        total_amount: calculateTotal(),
       };
-      
-      // This launches the Cashfree modal.
-      cashfree.drop(dropinConfig);
 
-    } catch (error: any) {
-      setValidationError(error.message || "Could not connect to the payment gateway.");
+      const { data, error } = await supabase
+        .from('registrations')
+        .insert([registrationData])
+        .select();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message);
+      }
+      
+      setRegistrationComplete(true);
+      setFinalTeamName(formData.teamName);
+
+    } catch (error) {
+      setValidationError("Failed to submit registration. Please try again or contact support.");
+      console.error(error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -312,7 +162,7 @@ const Register: React.FC = () => {
       case 4:
         return hasFollowedInstagram;
       case 5:
-        return formData.agreedToRules;
+          return paymentScreenshot && transactionId.trim() !== '';
       default:
         return false;
     }
@@ -320,12 +170,17 @@ const Register: React.FC = () => {
 
   const nextStep = () => {
     if (isStepValid()) {
-      if(currentStep < 5) setCurrentStep(currentStep + 1);
+      setCurrentStep(currentStep + 1);
+      setValidationError('');
+    } else {
+      setValidationError("Please fill out all required fields.");
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   if (registrationComplete) {
@@ -339,16 +194,12 @@ const Register: React.FC = () => {
           <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
           <p className="text-gray-700 mb-4">
-            Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.
+            Congratulations, <strong>{finalTeamName}</strong>! Your team is officially registered for InnovateX25.
           </p>
-          <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
-            <p>Your Payment ID is:</p>
-            <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
-          </div>
-          <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
+          <p className="text-gray-600 mt-6 text-sm">Your registration is pending verification of your payment. We will notify you via email once it's confirmed. Get ready to innovate!</p>
         </motion.div>
       </div>
-    )
+    );
   }
 
   // --- JSX for the form ---
@@ -356,7 +207,7 @@ const Register: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-32 font-sans">
       <div className="max-w-4xl mx-auto px-6">
         {/* Header Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
@@ -369,25 +220,10 @@ const Register: React.FC = () => {
           </div>
           <p className="text-gray-600 mb-2">Presented by reelhaus.hyd</p>
           <p className="text-lg font-semibold text-yellow-600">#UnleashingtheX-FactorofInnovation</p>
-          
+
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
-            {backendStatus === 'checking' && (
-              <div className="mb-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
-                <p className="text-blue-800 text-sm">🔄 Checking backend services...</p>
-              </div>
-            )}
-            {backendStatus === 'offline' && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
-                <p className="text-red-800 text-sm">⚠️ Backend services are currently unavailable. Please try again later.</p>
-              </div>
-            )}
-            {backendStatus === 'online' && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg">
-                <p className="text-green-800 text-sm">✅ All systems ready!</p>
-              </div>
-            )}
             <p className="text-gray-700 leading-relaxed">
-              Hey Innovators! Get ready for an epic experience where your ideas can shine. 
+              Hey Innovators! Get ready for an epic experience where your ideas can shine.
               InnovateX25 is your chance to team up with friends, tackle fun challenges, and show everyone what you've got!
             </p>
           </div>
@@ -417,6 +253,14 @@ const Register: React.FC = () => {
             Step {currentStep} of 5
           </div>
         </div>
+        {validationError && (
+          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium mb-6">
+            <div className='flex items-center justify-center'>
+              <AlertTriangle className='h-5 w-5 text-red-500 mr-2'/>
+              {validationError}
+            </div>
+          </div>
+        )}
 
         {/* Form Content Section */}
         <AnimatePresence mode="wait">
@@ -435,7 +279,7 @@ const Register: React.FC = () => {
                   <Users className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Identity
                 </h2>
-              
+
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -556,7 +400,7 @@ const Register: React.FC = () => {
                   <User className="w-6 h-6 mr-3 text-yellow-500" />
                   Your Team Roster
                 </h2>
-                  <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+                <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
 
                 <div className="space-y-8">
                   {Array.from({ length: formData.teamSize }, (_, index) => (
@@ -564,7 +408,7 @@ const Register: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">
                         Member {index + 1} {index === 0 && '(Team Leader)'}
                       </h3>
-                    
+
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -637,8 +481,8 @@ const Register: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
                     <div className="flex justify-center">
-                      <img 
-                        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/" 
+                      <img
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/"
                         alt="QR code for reelhaus.hyd Instagram"
                         className="rounded-lg shadow-md"
                       />
@@ -659,90 +503,64 @@ const Register: React.FC = () => {
                 </div>
               </div>
             )}
-            {currentStep === 5 && (() => {
-              const paymentDetails = calculateTotal();
-              return (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                    <CreditCard className="w-6 h-6 mr-3 text-yellow-500" />
-                    Registration Fee & Payment
-                  </h2>
-                  
-                  {/* THIS DIV IS THE TARGET FOR THE PAYMENT GATEWAY */}
-                  <div id="payment-form" className="mb-6"></div>
+            {currentStep === 5 && (
+              <motion.div
+                key="manual-payment-step"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
+              >
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <Upload className="w-6 h-6 mr-3 text-yellow-500" />
+                  Manual Payment & Confirmation
+                </h2>
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300 text-center">
+                    <h3 className="text-lg font-bold text-yellow-800 mb-2">Registration Fee: ₹{calculateTotal()} for a team of {formData.teamSize}</h3>
+                    <p className="text-sm text-yellow-700">Please make a UPI payment to the details below.</p>
+                  </div>
+                  <div className="flex flex-col items-center p-6 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-gray-700 font-semibold mb-2">Scan this QR Code to Pay:</p>
+                    <img src={qrCodeSrc} alt="Payment QR Code" className="rounded-lg shadow-md mb-4" />
+                    <p className="text-gray-800 font-mono text-sm">UPI ID: {upiDetails}</p>
+                  </div>
 
-                  <div className="space-y-6">
-                    {postPaymentError && (
-                      <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
-                        <div className='flex'>
-                          <AlertTriangle className='h-5 w-5 text-red-500 mr-3'/>
-                          <div>
-                            <p className="font-bold">Payment Error</p>
-                            <p>{postPaymentError}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300">
-                      <div className="flex items-center mb-4">
-                        <Sparkles className="w-6 h-6 text-yellow-600 mr-2" />
-                        <h3 className="text-lg font-bold text-yellow-800">Early Bird Offer!</h3>
-                      </div>
-                      <p className="text-yellow-700 mb-2">
-                        Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong>
-                      </p>
-                      <p className="text-yellow-800 font-semibold">
-                        Early Bird Price: ₹449 per person (Regular: ₹499)
-                      </p>
-                    </div>
-                    <div className="bg-white p-6 rounded-lg border border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
-                        <div className="space-y-3 text-gray-700">
-                          <div className="flex justify-between">
-                              <span>Team of {formData.teamSize} × ₹449</span>
-                              <span>₹{paymentDetails.subtotal.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-green-600">
-                              <span>Early Bird Discount</span>
-                              <span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span>
-                          </div>
-                          <hr className="my-2"/>
-                          <div className="flex justify-between font-semibold">
-                              <span>Subtotal</span>
-                              <span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span>
-                          </div>
-                           <div className="flex justify-between">
-                              <span>Platform Fee (5%)</span>
-                              <span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span>
-                          </div>
-                          <hr className="my-2 border-t-2 border-gray-300"/>
-                          <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2">
-                              <span>Total Amount Due</span>
-                              <span>₹{paymentDetails.total.toFixed(2)}</span>
-                          </div>
-                      </div>
-                    </div>
-                    <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <input
-                        type="checkbox"
-                        id="agreeRules"
-                        checked={formData.agreedToRules}
-                        onChange={(e) => handleInputChange('agreedToRules', e.target.checked)}
-                        className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="agreeRules" className="text-gray-700">
-                        By checking this box, our team agrees to the rules and is ready to bring our A-game!
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Transaction ID:
                       </label>
+                      <input
+                        type="text"
+                        value={transactionId}
+                        onChange={(e) => setTransactionId(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        placeholder="Enter transaction ID"
+                      />
                     </div>
-                    {validationError && (
-                        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
-                            {validationError}
-                        </div>
-                    )}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Upload Payment Screenshot:
+                      </label>
+                      <div className="flex items-center">
+                        <label className="flex-1 cursor-pointer bg-yellow-100 text-yellow-800 p-3 rounded-lg border border-yellow-300 hover:bg-yellow-200 transition-colors flex items-center justify-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setPaymentScreenshot(e.target.files[0])}
+                            className="sr-only"
+                          />
+                          <Upload className="w-5 h-5 mr-2" />
+                          {paymentScreenshot ? paymentScreenshot.name : 'Choose file'}
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )
-            })()}
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -767,19 +585,15 @@ const Register: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={handlePayment}
-              disabled={!formData.agreedToRules || isLoading || backendStatus !== 'online'}
+              onClick={handleFinalSubmission}
+              disabled={isLoading || !isStepValid()}
               className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 transition-colors w-60"
             >
               {isLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
-                  Proceed to Payment
-                  {backendStatus !== 'online' && (
-                    <span className="ml-2 text-xs">(Service Unavailable)</span>
-                  )}
-                  <CreditCard className="w-5 h-5 ml-2" />
+                  Complete Registration
                 </>
               )}
             </button>
@@ -799,7 +613,7 @@ const Register: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>  
+      </div>
     </div>
   );
 };
