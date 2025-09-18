@@ -1,6 +1,6 @@
 import React, { useReducer, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from 'https://unpkg.com/@supabase/supabase-js@2/dist/supabase.mjs';
+import { createClient } from '@supabase/supabase-js';
 import {
   Users, Trophy, Megaphone, Lightbulb, ChevronRight,
   ChevronLeft, Check, Mail, Phone, User,
