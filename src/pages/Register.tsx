@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 // --- Configuration ---
-// IMPORTANT: Replace with your actual Supabase Project URL and Anon Key
+// IMPORTANT: It's recommended to use environment variables for production for better security.
 const supabaseUrl = 'https://ytjnonkfkhcpkijhvlqi.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE';
 
@@ -19,6 +19,8 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Replace this URL with the direct link to your QR code image.
 const PAYMENT_QR_CODE_URL = "https://i.imgur.com/your-qr-code.png"; // Example QR Code URL
 
+// The external payment link for teams of 2.
+const TEAM_OF_2_PAYMENT_LINK = "https://payments.cashfree.com/forms?code=InnovateX25";
 
 
 // --- Type Definitions & Interfaces ---
