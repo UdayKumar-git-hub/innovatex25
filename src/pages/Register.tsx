@@ -404,9 +404,22 @@ const App = () => {
             return;
         }
 
-        // FIX: Check SDK status using state instead of direct window check.
+        // State-based check for SDK readiness
         if (sdkStatus !== 'ready') {
             setValidationError("Payment gateway is not ready. This could be due to a network issue or an ad-blocker. Please wait a moment or try refreshing the page.");
+            return;
+        }
+
+        // FINAL SAFEGUARD: Double-check for the cashfree object directly before use to prevent crashes.
+        if (typeof (window as any).cashfree !== 'object' || typeof (window as any).cashfree.Cashfree !== 'function') {
+            setValidationError("Payment components are still initializing. Please wait a few seconds and try again.");
+            // Attempt to re-initialize in case of a glitch
+            if (sdkStatus !== 'loading') {
+                setSdkStatus('loading');
+                loadCashfreeSDK()
+                    .then(() => setSdkStatus('ready'))
+                    .catch(() => setSdkStatus('error'));
+            }
             return;
         }
 
