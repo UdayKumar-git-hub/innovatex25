@@ -33,7 +33,7 @@ app.get("/api/health", (req, res) => {
 // Accessible at https://reelhaus.in/api/create-payment-order
 app.post("/api/create-payment-order", async (req, res) => {
   // Load environment variables securely
-  const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
+  const API_ENV = process.env.CASHFREE_API_ENV || "production";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
   const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
   const FRONTEND_URL = "https://reelhaus.in"; // Your production frontend URL for Cashfree's return_url
