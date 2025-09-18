@@ -1,59 +1,35 @@
+// api/server.cjs
+
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs/promises");
-const path = require("path");
-const crypto = require("crypto");
 require("dotenv").config();
-
+// The dynamic import for node-fetch is correct for CommonJS
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
 // --- Configuration ---
-// --- FIX: Create a whitelist of allowed domains for CORS ---
-const allowedOrigins = [
-    'https://reelhaus.in', // Your new production domain
-    'https://rhinnovatex.netlify.app', // Your old domain
-    process.env.FRONTEND_URL, // Keep support for the environment variable
-    'http://localhost:3000', // For local development
-    'http://localhost:5173'  // For local Vite/React development
-].filter(Boolean); // Filter out undefined/null values from the array
-
-
-const REGISTRATIONS_DB_PATH = path.join("/tmp", "registrations.json");
+// Allow your specific frontend URL. Using a wildcard is less secure.
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://reelhaus.in";
 
 // --- Middleware ---
+// More robust CORS setup
+app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
-// --- FIX: Updated CORS configuration to use the whitelist ---
-app.use(cors)
-
-
-// --- Helper Functions ---
-const getRegistrations = async () => {
-    try {
-        await fs.access(REGISTRATIONS_DB_PATH);
-        const data = await fs.readFile(REGISTRATIONS_DB_PATH, "utf-8");
-        return data ? JSON.parse(data) : [];
-    } catch (error) {
-        return [];
-    }
-};
-
-const saveRegistration = async (newRegistration) => {
-    const registrations = await getRegistrations();
-    registrations.push(newRegistration);
-    await fs.writeFile(REGISTRATIONS_DB_PATH, JSON.stringify(registrations, null, 2));
-};
-
-
 // --- API Routes ---
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is healthy" });
+// It's good practice to group all API routes under a single router.
+const apiRouter = express.Router();
+
+// Health Check Route: /api/health
+apiRouter.get("/health", (req, res) => {
+  console.log("✅ Health check endpoint was hit successfully.");
+  res.status(200).json({ status: "ok", message: "Backend is healthy" });
 });
 
-app.post("/create-payment-order", async (req, res) => {
+// Payment Route: /api/create-payment-order
+apiRouter.post("/create-payment-order", async (req, res) => {
   const API_ENV = process.env.CASHFREE_API_ENV || "sandbox";
   const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
   const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
@@ -68,7 +44,6 @@ app.post("/create-payment-order", async (req, res) => {
       return res.status(400).json({ message: "Missing required order details" });
     }
 
-    const uniqueOrderId = `INX25-${crypto.randomUUID()}`;
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: "POST",
       headers: {
@@ -78,46 +53,43 @@ app.post("/create-payment-order", async (req, res) => {
         "x-api-version": "2022-09-01",
       },
       body: JSON.stringify({
-        order_id: uniqueOrderId,
+        order_id: `INNOVATEX-SVR-${Date.now()}`,
         order_amount,
         order_currency: "INR",
         customer_details,
         order_meta: {
-          // Use the origin from the request for the return URL for flexibility
-          return_url: `${req.headers.origin}/success?order_id={order_id}`,
+          return_url: `${FRONTEND_URL}/success?order_id={order_id}`,
         },
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-        console.error("Cashfree API Error:", data);
-        return res
-            .status(response.status)
-            .json({ message: data.message || "Failed to create order with payment provider" });
+      console.error("Cashfree API Error:", data);
+      return res.status(response.status).json({ message: data.message || "Failed to create payment order" });
     }
     res.status(200).json(data);
   } catch (err) {
-    console.error("Error in /create-payment-order:", err);
+    console.error("Internal Server Error in /create-payment-order:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-app.post("/register", async (req, res) => {
-    try {
-        const registrationData = req.body;
-        if (!registrationData.teamName || !registrationData.members || !registrationData.payment_id) {
-            return res.status(400).json({ message: "Invalid registration data. Required fields are missing." });
-        }
-        const finalData = { ...registrationData, server_timestamp: new Date().toISOString() };
-        await saveRegistration(finalData);
-        console.log(`Successfully registered team: ${registrationData.teamName}`);
-        res.status(201).json({ success: true, message: "Registration successful!" });
-    } catch(err) {
-        console.error("Error in /register:", err);
-        res.status(500).json({ message: "Failed to save registration data due to a server error." });
-    }
+// Use the router for all routes starting with /api
+app.use("/api", apiRouter);
+
+
+// --- Catch-all Route for Debugging ---
+// This will catch any request that doesn't match the routes above it.
+app.use((req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found.` });
 });
 
-module.exports = app;
 
+// --- Start Server ---
+// This part is correct for Render.com
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running and listening on port ${PORT}`);
+});
