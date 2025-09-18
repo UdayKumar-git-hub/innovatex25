@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_URL = "https://ytjnonkfkhcpkijhvlqi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0am5vbmtma2hjcGtpamh2bHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTAzMjgsImV4cCI6MjA3Mjk4NjMyOH0.4TrFHEY-r1YMrqfG8adBmjgnVKYCnUC34rvnwsZfehE";
 
 console.log("SUPABASE_URL:", SUPABASE_URL);
 console.log("SUPABASE_KEY:", SUPABASE_ANON_KEY ? "Loaded ✅" : "Missing ❌");
