@@ -7,141 +7,140 @@ import {
 } from 'lucide-react';
 
 // --- Configuration ---
-// Reads the backend URL from the environment variables.
-const API_URL = process.env.VITE_API_URL;
-
-// Mock mode is automatic. If VITE_API_URL is NOT set, mock mode will be ON.
+// In Vite apps use `import.meta.env` to read env vars exposed at build time.
+const API_URL = import.meta.env.VITE_API_URL || '';
 const MOCK_API = !API_URL;
 
-
 // --- State Management (Reducer) ---
-
+const defaultMember = () => ({ fullName: '', grade: '', email: '', phoneNumber: '' });
 const initialFormData = {
   teamName: '',
   teamSize: 2,
   interests: [],
   otherInterest: '',
   superpower: '',
-  members: Array(4).fill(null).map(() => ({
-    fullName: '', grade: '', email: '', phoneNumber: ''
-  })),
+  members: Array(4).fill(null).map(defaultMember),
   agreedToRules: false
 };
 
-/**
- * Reducer to manage all updates to the form's state in a centralized way.
- */
 const formReducer = (state, action) => {
   switch (action.type) {
     case 'UPDATE_FIELD':
       return { ...state, [action.field]: action.payload };
-    case 'UPDATE_MEMBER': {
-      const newMembers = [...state.members];
-      newMembers[action.index] = { ...newMembers[action.index], [action.field]: action.payload };
 
-      // Business Logic: Auto-fill grade for other members based on the team leader's grade.
-      if (action.index === 0 && action.field === 'grade') {
+    case 'UPDATE_MEMBER': {
+      const index = action.index;
+      const newMembers = [...state.members];
+      // ensure the member object exists
+      if (!newMembers[index]) newMembers[index] = defaultMember();
+      newMembers[index] = { ...newMembers[index], [action.field]: action.payload };
+
+      // If team leader (index 0) changed grade, propagate it to other members (business rule)
+      if (index === 0 && action.field === 'grade') {
         for (let i = 1; i < state.teamSize; i++) {
+          if (!newMembers[i]) newMembers[i] = defaultMember();
           newMembers[i] = { ...newMembers[i], grade: action.payload };
         }
       }
       return { ...state, members: newMembers };
     }
-    case 'SET_TEAM_SIZE':
-      return { ...state, teamSize: action.payload };
+
+    case 'SET_TEAM_SIZE': {
+      const size = Number(action.payload) || 2;
+      // clamp between 2 and 4
+      const clamped = Math.min(Math.max(size, 2), 4);
+      const existing = [...state.members];
+      // truncate or extend members array to match new size but keep a backing store of 4 members
+      const updatedMembers = existing.slice(0, Math.max(clamped, existing.length));
+      while (updatedMembers.length < 4) updatedMembers.push(defaultMember());
+      return { ...state, teamSize: clamped, members: updatedMembers };
+    }
+
     default:
       return state;
   }
 };
 
-
 // --- API & SDK Helper Functions ---
-
-/**
- * Dynamically loads the Cashfree SDK script into the document.
- */
 const loadCashfreeSDK = () => {
   if (MOCK_API) return Promise.resolve(true);
 
   return new Promise((resolve, reject) => {
-    if (typeof window.cashfree === 'object') {
+    // Robust checks for many possible global names
+    if (typeof window !== 'undefined' && (window.cashfree || window.Cashfree || window.cashfreeSDK)) {
       return resolve(true);
     }
+
     const script = document.createElement('script');
     script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    script.async = true;
     script.onload = () => resolve(true);
     script.onerror = () => reject(new Error('Cashfree SDK failed to load. Check ad-blockers or network issues.'));
     document.body.appendChild(script);
   });
 };
 
-/**
- * Performs a health check on the backend server.
- */
 const checkBackendHealth = async () => {
   if (MOCK_API) {
-    console.log("MOCK MODE: Simulating a healthy backend.");
-    return new Promise(resolve => setTimeout(() => resolve(true), 500));
+    console.log('MOCK MODE: Simulating a healthy backend.');
+    return new Promise((resolve) => setTimeout(() => resolve(true), 300));
   }
   try {
-    const response = await fetch(`${API_URL}/api/health`);
-    if (!response.ok) return false;
-    const data = await response.json();
-    return data.status === 'ok';
-  } catch (error) {
-    console.error("Backend health check failed:", error);
+    const res = await fetch(`${API_URL}/api/health`);
+    if (!res.ok) return false;
+    const json = await res.json();
+    return json && json.status === 'ok';
+  } catch (err) {
+    console.error('Backend health check failed:', err);
     return false;
   }
 };
 
-/**
- * Sends a request to the backend to create a payment order session.
- */
 const createPaymentOrder = async (orderData) => {
   if (MOCK_API) {
-    console.log("MOCK MODE: Simulating payment order creation with data:", orderData);
-    return new Promise(resolve => setTimeout(() => resolve({
-        payment_session_id: 'mock_session_id_12345',
-        order_id: 'mock_order_id_67890'
-    }), 1000));
+    console.log('MOCK MODE: Simulating payment order creation with data:', orderData);
+    return new Promise((resolve) => setTimeout(() => resolve({ payment_session_id: 'mock_session_id_12345', order_id: 'mock_order_id_67890' }), 700));
   }
-  const response = await fetch(`${API_URL}/api/create-payment-order`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to create payment order on the backend.');
-  }
-  return response.json();
-};
-
-/**
- * Sends the final, complete registration data to the backend for persistent storage.
- */
-const saveRegistrationData = async (registrationData) => {
-    if (MOCK_API) {
-        console.log("MOCK MODE: Simulating saving registration data:", registrationData);
-        return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000));
-    }
-    const response = await fetch(`${API_URL}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registrationData),
+  try {
+    const response = await fetch(`${API_URL}/api/create-payment-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData),
     });
-
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save registration data to the server.');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Payment order creation failed with status ${response.status}`);
     }
-    return response.json();
+    return await response.json();
+  } catch (err) {
+    console.error('createPaymentOrder error:', err);
+    throw err;
+  }
 };
 
+const saveRegistrationData = async (registrationData) => {
+  if (MOCK_API) {
+    console.log('MOCK MODE: Simulating saving registration data:', registrationData);
+    return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 700));
+  }
+  try {
+    const response = await fetch(`${API_URL}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(registrationData),
+    });
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson.message || `Registration save failed with status ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error('saveRegistrationData error:', err);
+    throw err;
+  }
+};
 
-// --- Child Component Definitions ---
-
+// --- Child Components ---
 const StepIndicator = ({ currentStep }) => (
   <div className="mb-8">
     <div className="flex items-center justify-between mb-4 max-w-lg mx-auto">
@@ -158,30 +157,26 @@ const StepIndicator = ({ currentStep }) => (
         </React.Fragment>
       ))}
     </div>
-    <div className="text-center text-sm text-gray-600 font-semibold">
-      Step {currentStep} of 5
-    </div>
+    <div className="text-center text-sm text-gray-600 font-semibold">Step {currentStep} of 5</div>
   </div>
 );
 
 const RegistrationSuccess = ({ finalPaymentInfo }) => (
-    <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto">
-            <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
-            <p className="text-gray-700 mb-4">Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.</p>
-            <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
-                <p>Your Payment ID is:</p>
-                <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
-            </div>
-            <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
-        </motion.div>
-    </div>
+  <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
+    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto">
+      <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
+      <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
+      <p className="text-gray-700 mb-4">Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.</p>
+      <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
+        <p>Your Payment ID is:</p>
+        <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
+      </div>
+      <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
+    </motion.div>
+  </div>
 );
 
-
-// --- Main Application Component ---
-
+// --- Main Component ---
 const Register = () => {
   const [formData, dispatch] = useReducer(formReducer, initialFormData);
   const [currentStep, setCurrentStep] = useState(1);
@@ -193,11 +188,12 @@ const Register = () => {
   const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
 
-  // --- Initialization Effect ---
   useEffect(() => {
+    let mounted = true;
     const initializeServices = async () => {
       setBackendStatus('checking');
       const isBackendOnline = await checkBackendHealth();
+      if (!mounted) return;
       setBackendStatus(isBackendOnline ? 'online' : 'offline');
 
       if (isBackendOnline) {
@@ -208,130 +204,151 @@ const Register = () => {
           console.error('Failed to initialize payment SDK:', error);
           setValidationError(error.message);
         }
-      } else if (!MOCK_API) { // Only show error if not in mock mode
+      } else if (!MOCK_API) {
         setValidationError('Could not connect to the server. Please try again later.');
       }
     };
     initializeServices();
+    return () => { mounted = false; };
   }, []);
 
-  // --- Business Logic ---
   const calculateTotal = () => {
     const basePrice = 449;
     const teamDiscount = 50;
     const platformFeeRate = 0.05;
     const subtotal = basePrice * formData.teamSize;
-    const priceAfterDiscount = subtotal - teamDiscount;
-    const platformFee = priceAfterDiscount * platformFeeRate;
-    const total = priceAfterDiscount + platformFee;
+    const priceAfterDiscount = Math.max(0, subtotal - teamDiscount);
+    const platformFee = parseFloat((priceAfterDiscount * platformFeeRate).toFixed(2));
+    const total = parseFloat((priceAfterDiscount + platformFee).toFixed(2));
     return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
   };
 
   const isStepValid = () => {
     switch (currentStep) {
-      case 1: return formData.teamName.trim() !== '';
-      case 2: return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
-      case 3:
+      case 1:
+        return formData.teamName.trim() !== '';
+      case 2:
+        return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
+      case 3: {
         for (let i = 0; i < formData.teamSize; i++) {
-          const member = formData.members[i];
-          if (!member.fullName.trim() || !member.grade || !member.email.trim().includes('@') || !member.phoneNumber.trim()) return false;
+          const member = formData.members[i] || defaultMember();
+          if (!member.fullName.trim()) return false;
+          if (!member.grade) return false;
+          if (!member.email.trim() || !member.email.includes('@')) return false;
+          if (!member.phoneNumber.trim()) return false;
         }
         return true;
-      case 4: return hasFollowedInstagram;
-      case 5: return formData.agreedToRules;
-      default: return false;
+      }
+      case 4:
+        return hasFollowedInstagram;
+      case 5:
+        return formData.agreedToRules;
+      default:
+        return false;
     }
   };
 
-  // --- Event Handlers ---
   const nextStep = () => {
+    setValidationError('');
     if (isStepValid()) {
-      if (currentStep < 5) setCurrentStep(currentStep + 1);
+      if (currentStep < 5) setCurrentStep((s) => s + 1);
+    } else {
+      setValidationError('Please complete the required fields before moving on.');
     }
   };
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
+    setValidationError('');
+    if (currentStep > 1) setCurrentStep((s) => s - 1);
   };
-  
+
   const handlePayment = async () => {
-    const leader = formData.members[0];
+    setValidationError('');
+    setPostPaymentError('');
+
+    const leader = formData.members[0] || defaultMember();
     if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
       setValidationError("Team Leader's details are incomplete. Please go back and fill them out.");
       setCurrentStep(3);
       return;
     }
+
     if (backendStatus !== 'online') {
-      setValidationError("Payment services are currently unavailable.");
+      setValidationError('Payment services are currently unavailable.');
       return;
     }
-    setValidationError('');
-    setPostPaymentError('');
+
     setIsLoading(true);
 
     try {
       const paymentDetails = calculateTotal();
       const orderData = {
-        order_amount: parseFloat(paymentDetails.total.toFixed(2)),
+        order_amount: paymentDetails.total,
         customer_details: {
           customer_id: `CUST-${Date.now()}`,
-          customer_email: formData.members[0].email,
-          customer_phone: formData.members[0].phoneNumber,
-          customer_name: formData.members[0].fullName,
+          customer_email: leader.email,
+          customer_phone: leader.phoneNumber,
+          customer_name: leader.fullName,
         }
       };
-      
-      const sessionResponse = await createPaymentOrder(orderData);
-      const { payment_session_id, order_id } = sessionResponse;
 
-      if (!payment_session_id) throw new Error("Failed to create payment session.");
-      
+      const sessionResponse = await createPaymentOrder(orderData);
+      const { payment_session_id, order_id } = sessionResponse || {};
+
+      if (!payment_session_id) throw new Error('Failed to create payment session.');
+
       const onSuccess = async (data) => {
+        try {
           if (data.order && data.order.status === 'PAID') {
-            const paymentId = data.order.payment_id;
+            const paymentId = data.order.payment_id || data.order.paymentId || 'unknown_payment_id';
             const fullRegistrationData = { ...formData, payment_id: paymentId, order_id: order_id, total_amount: paymentDetails.total };
             try {
-                await saveRegistrationData(fullRegistrationData);
-                setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
-                setRegistrationComplete(true);
+              await saveRegistrationData(fullRegistrationData);
+              setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
+              setRegistrationComplete(true);
             } catch (saveError) {
-                setPostPaymentError(`Your payment was successful, but we couldn't save your registration. Please contact support with Payment ID: ${paymentId}. Error: ${saveError.message}`);
+              console.error('Save error after payment:', saveError);
+              setPostPaymentError(`Your payment was successful (Payment ID: ${paymentId}), but we couldn't save your registration. Please contact support with this Payment ID.`);
             }
           } else {
-             setPostPaymentError("Payment status was not successful. Please contact support.");
+            setPostPaymentError('Payment status was not successful. Please contact support.');
           }
+        } finally {
           setIsLoading(false);
+        }
       };
 
       const onFailure = (data) => {
-          setIsLoading(false);
-          setPostPaymentError(`Payment failed: ${data.order.error_text}. Please try again.`);
+        setIsLoading(false);
+        const msg = data?.order?.error_text || data?.message || 'Unknown payment error';
+        setPostPaymentError(`Payment failed: ${msg}. Please try again.`);
       };
 
       if (MOCK_API) {
-          console.log("MOCK MODE: Simulating Cashfree payment flow.");
-          setTimeout(() => {
-              onSuccess({ order: { status: 'PAID', payment_id: 'mock_payment_id_xyz789' } });
-          }, 2000);
+        // Simulate a small delay then call onSuccess
+        setTimeout(() => onSuccess({ order: { status: 'PAID', payment_id: 'mock_payment_id_xyz789' } }), 1200);
       } else {
-          const cashfree = new window.cashfree.Cashfree();
-          cashfree.drop(document.getElementById("payment-form"), {
-            components: ["order-details", "card", "upi", "netbanking"],
-            paymentSessionId: payment_session_id,
-            onSuccess,
-            onFailure,
-          });
+        // Robustly pick the Cashfree constructor
+        const CashfreeClass = window.cashfree?.Cashfree || window.Cashfree || window.cashfreeSDK || null;
+        if (!CashfreeClass) throw new Error('Payment SDK not initialized or blocked by browser extensions.');
+        const cashfree = new CashfreeClass();
+        if (typeof cashfree.drop !== 'function') throw new Error('Payment SDK does not expose the `drop` method.');
+
+        cashfree.drop(document.getElementById('payment-form'), {
+          components: ['order-details', 'card', 'upi', 'netbanking'],
+          paymentSessionId: payment_session_id,
+          onSuccess,
+          onFailure,
+        });
       }
-    } catch (error) {
-      setValidationError(error.message || "Could not connect to the payment gateway.");
+
+    } catch (err) {
+      console.error('handlePayment error:', err);
+      setValidationError(err.message || 'Could not connect to the payment gateway.');
       setIsLoading(false);
     }
   };
 
-  // --- Rendering Logic ---
-
-  if (registrationComplete) {
-    return <RegistrationSuccess finalPaymentInfo={finalPaymentInfo} />;
-  }
+  if (registrationComplete) return <RegistrationSuccess finalPaymentInfo={finalPaymentInfo} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-yellow-50 to-gray-100 py-20 font-sans">
@@ -345,20 +362,20 @@ const Register = () => {
             {backendStatus === 'online' && <div className="p-3 bg-green-100 border rounded-lg text-green-800 text-sm">✅ All systems ready!</div>}
           </div>
         </motion.div>
-        
+
         <StepIndicator currentStep={currentStep} />
-        
+
         <AnimatePresence mode="wait">
-          <motion.div 
-            key={currentStep} 
-            initial={{ opacity: 0, x: 50 }} 
-            animate={{ opacity: 1, x: 0 }} 
-            exit={{ opacity: 0, x: -50 }} 
-            transition={{ duration: 0.3 }} 
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
             className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
           >
             <div id="payment-form"></div>
-            
+
             {/* --- Step 1 --- */}
             {currentStep === 1 && (
               <div>
@@ -385,7 +402,7 @@ const Register = () => {
 
             {/* --- Step 2 --- */}
             {currentStep === 2 && (() => {
-              const challenges = [{ id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy }, { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone },{ id: 'innovators', name: 'Young Innovators', description: 'Coming up with a game-changing new idea', icon: Lightbulb },{ id: 'echoes', name: 'ECHOES', description: 'Sharing your story and speaking your mind', icon: MessageSquare }];
+              const challenges = [{ id: 'ipl', name: 'IPL Auction', description: 'Building a dream cricket team with a budget', icon: Trophy }, { id: 'brand', name: 'Brand Battles', description: 'Creating and pitching a cool new brand', icon: Megaphone }, { id: 'innovators', name: 'Young Innovators', description: 'Coming up with a game-changing new idea', icon: Lightbulb }, { id: 'echoes', name: 'ECHOES', description: 'Sharing your story and speaking your mind', icon: MessageSquare }];
               const interests = ['Gaming & Esports', 'Technology & Coding', 'Art, Design & Video', 'Sports & Strategy', 'Public Speaking & Debating', 'Business & Marketing'];
               const handleInterestToggle = (interest) => { const newInterests = formData.interests.includes(interest) ? formData.interests.filter(i => i !== interest) : [...formData.interests, interest]; dispatch({ type: 'UPDATE_FIELD', field: 'interests', payload: newInterests }); };
               return (
@@ -398,11 +415,11 @@ const Register = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-4">What are your team's interests? (Check all that apply)</label>
-                      <div className="grid md:grid-cols-2 gap-3">{interests.map(i => <label key={i} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 ${formData.interests.includes(i) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}><input type="checkbox" checked={formData.interests.includes(i)} onChange={() => handleInterestToggle(i)} className="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500" /><span className="ml-3 text-gray-700">{i}</span></label>)}<div className="flex items-center p-3 border rounded-lg focus-within:ring-2 focus-within:ring-yellow-500"><input type="checkbox" checked={formData.otherInterest !== ''} readOnly className="w-4 h-4 text-yellow-600" /><input type="text" value={formData.otherInterest} onChange={e => dispatch({type: 'UPDATE_FIELD', field: 'otherInterest', payload: e.target.value})} placeholder="Other..." className="ml-3 flex-1 bg-transparent outline-none" /></div></div>
+                      <div className="grid md:grid-cols-2 gap-3">{interests.map(i => <label key={i} className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 ${formData.interests.includes(i) ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}`}><input type="checkbox" checked={formData.interests.includes(i)} onChange={() => handleInterestToggle(i)} className="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500" /><span className="ml-3 text-gray-700">{i}</span></label>)}<div className="flex items-center p-3 border rounded-lg focus-within:ring-2 focus-within:ring-yellow-500"><input type="checkbox" checked={formData.otherInterest !== ''} readOnly className="w-4 h-4 text-yellow-600" /><input type="text" value={formData.otherInterest} onChange={e => dispatch({ type: 'UPDATE_FIELD', field: 'otherInterest', payload: e.target.value })} placeholder="Other..." className="ml-3 flex-1 bg-transparent outline-none" /></div></div>
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">What's your team's secret superpower?</label>
-                      <textarea value={formData.superpower} onChange={e => dispatch({type: 'UPDATE_FIELD', field: 'superpower', payload: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" rows={3} placeholder="e.g., Super creative, amazing planners..."/>
+                      <textarea value={formData.superpower} onChange={e => dispatch({ type: 'UPDATE_FIELD', field: 'superpower', payload: e.target.value })} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" rows={3} placeholder="e.g., Super creative, amazing planners..." />
                     </div>
                   </div>
                 </div>
@@ -419,12 +436,15 @@ const Register = () => {
                     <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Member {index + 1} {index === 0 && '(Team Leader)'}</h3>
                       <div className="grid md:grid-cols-2 gap-4">
-                        <input type="text" value={formData.members[index].fullName} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'fullName', payload: e.target.value })} placeholder="Full Name" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
-                        <select value={formData.members[index].grade} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'grade', payload: e.target.value })} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-200/70" disabled={index > 0}>
-                          <option value="">Select Grade</option><option value="7th">7th</option><option value="8th">8th</option><option value="9th">9th</option>
+                        <input type="text" value={formData.members[index]?.fullName || ''} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'fullName', payload: e.target.value })} placeholder="Full Name" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                        <select value={formData.members[index]?.grade || ''} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'grade', payload: e.target.value })} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-200/70" disabled={index > 0}>
+                          <option value="">Select Grade</option>
+                          <option value="7th">7th</option>
+                          <option value="8th">8th</option>
+                          <option value="9th">9th</option>
                         </select>
-                        <input type="email" value={formData.members[index].email} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'email', payload: e.target.value })} placeholder="Email Address" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
-                        <input type="tel" value={formData.members[index].phoneNumber} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'phoneNumber', payload: e.target.value })} placeholder="Phone Number" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                        <input type="email" value={formData.members[index]?.email || ''} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'email', payload: e.target.value })} placeholder="Email Address" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                        <input type="tel" value={formData.members[index]?.phoneNumber || ''} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'phoneNumber', payload: e.target.value })} placeholder="Phone Number" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
                       </div>
                     </div>
                   ))}
@@ -457,22 +477,22 @@ const Register = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CreditCard className="w-6 h-6 mr-3 text-yellow-500" /> Registration Fee & Payment</h2>
                   <div className="space-y-6">
-                    {postPaymentError && <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex items-start"><AlertTriangle className='h-5 w-5 mr-3 flex-shrink-0'/><p><span className="font-bold">Payment Error:</span> {postPaymentError}</p></div>}
+                    {postPaymentError && <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex items-start"><AlertTriangle className='h-5 w-5 mr-3 flex-shrink-0' /><p><span className="font-bold">Payment Error:</span> {postPaymentError}</p></div>}
                     <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300"><h3 className="text-lg font-bold text-yellow-800 mb-2 flex items-center"><Sparkles className="w-6 h-6 mr-2" />Early Bird Offer!</h3><p className="text-yellow-700 mb-2">Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong></p><p className="text-yellow-800 font-semibold">Early Bird Price: ₹449 per person</p></div>
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
                       <div className="space-y-3 text-gray-700">
                         <div className="flex justify-between"><span>Team of {formData.teamSize} × ₹449</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
                         <div className="flex justify-between text-green-600"><span>Early Bird Discount</span><span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span></div>
-                        <hr className="my-2"/>
+                        <hr className="my-2" />
                         <div className="flex justify-between font-semibold"><span>Subtotal</span><span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span></div>
                         <div className="flex justify-between"><span>Platform Fee (5%)</span><span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span></div>
-                        <hr className="my-2 border-t-2 border-gray-300"/>
+                        <hr className="my-2 border-t-2 border-gray-300" />
                         <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2"><span>Total Amount Due</span><span>₹{paymentDetails.total.toFixed(2)}</span></div>
                       </div>
                     </div>
                     <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <input type="checkbox" id="agreeRules" checked={formData.agreedToRules} onChange={e => dispatch({type: 'UPDATE_FIELD', field: 'agreedToRules', payload: e.target.checked})} className="mt-1 mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
+                      <input type="checkbox" id="agreeRules" checked={formData.agreedToRules} onChange={e => dispatch({ type: 'UPDATE_FIELD', field: 'agreedToRules', payload: e.target.checked })} className="mt-1 mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
                       <label htmlFor="agreeRules" className="text-gray-700">By checking this box, our team agrees to the rules and is ready to bring our A-game!</label>
                     </div>
                     {validationError && <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">{validationError}</div>}
@@ -483,7 +503,7 @@ const Register = () => {
 
           </motion.div>
         </AnimatePresence>
-        
+
         <div className="flex justify-between mt-8">
           <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center px-6 py-3 bg-gray-200 rounded-lg font-semibold disabled:opacity-50 hover:bg-gray-300"><ChevronLeft className="w-5 h-5 mr-2" />Previous</button>
           {currentStep < 5 ? (
@@ -508,4 +528,3 @@ const Register = () => {
 };
 
 export default Register;
-
