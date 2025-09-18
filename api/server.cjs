@@ -162,3 +162,4 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 InnovateX25 backend running on port ${PORT}`);
   console.log(`CORS is configured to allow requests from: ${FRONTEND_URL}`);
 });
+  
