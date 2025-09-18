@@ -9,26 +9,32 @@ const fetch = (...args) =>
 const app = express();
 
 // --- Config ---
-let FRONTEND_URL = process.env.FRONTEND_URL || "https://rhinnovatex.netlify.app";
-// Remove trailing slash to prevent CORS mismatch
-FRONTEND_URL = FRONTEND_URL.replace(/\/$/, "");
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://rhinnovatex.netlify.app";
 
-// Enable CORS for the frontend only
-app.use(cors({ origin: FRONTEND_URL }));
+// --- CORS Middleware ---
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like Postman or server-to-server)
+    if (!origin) return callback(null, true);
 
-// Enable JSON parsing
+    // Normalize the URLs by removing trailing slashes
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    const normalizedFrontend = FRONTEND_URL.replace(/\/$/, "");
+
+    if (normalizedOrigin === normalizedFrontend) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy: origin ${origin} not allowed.`));
+    }
+  },
+  credentials: true, // if you plan to use cookies or auth headers
+}));
+
 app.use(express.json());
 
 // --- Health Check ---
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
-});
-
-// --- Registration Route ---
-app.post("/api/register", (req, res) => {
-  // You can replace this with actual DB logic
-  console.log("Received registration data:", req.body);
-  res.status(200).json({ success: true, message: "Registration saved!" });
 });
 
 // --- Payment Route ---
@@ -72,7 +78,6 @@ app.post("/api/create-payment-order", async (req, res) => {
         .status(response.status)
         .json({ message: data.message || "Failed to create order" });
     }
-
     res.status(200).json(data);
   } catch (err) {
     console.error("Error creating payment order:", err);
