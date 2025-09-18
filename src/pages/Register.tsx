@@ -2,12 +2,14 @@ import React, { useReducer, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, Trophy, Megaphone, Lightbulb, MessageSquare, ChevronRight,
-    ChevronLeft, Check, Star, Mail, Phone, User, CreditCard,
-    Sparkles, PartyPopper, AlertTriangle, Instagram
+    ChevronLeft, Check, Star, Mail, Phone, User,
+    Sparkles, PartyPopper, Instagram, CheckCircle
 } from 'lucide-react';
 
 // --- Configuration ---
-const API_URL = "https://innovatex25.onrender.com";
+const GRADE_LEVELS = ["7th", "8th", "9th"];
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^\d{10}$/;
 
 // --- Type Definitions & Interfaces ---
 interface TeamMember {
@@ -65,79 +67,6 @@ const formReducer = (state: FormData, action: FormAction): FormData => {
         default:
             return state;
     }
-};
-
-// --- API & SDK Helper Functions ---
-
-/**
- * Dynamically loads the Cashfree SDK script.
- * @returns {Promise<boolean>} Resolves on successful load.
- */
-const loadCashfreeSDK = (): Promise<boolean> => {
-    return new Promise((resolve, reject) => {
-        if (typeof (window as any).cashfree === 'object') {
-            return resolve(true);
-        }
-        const script = document.createElement('script');
-        script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-        script.onload = () => resolve(true);
-        script.onerror = () => reject(new Error('Cashfree SDK failed to load. Check ad-blockers or network issues.'));
-        document.body.appendChild(script);
-    });
-};
-
-/**
- * Performs a health check on the backend server.
- * @returns {Promise<boolean>} True if the backend is healthy.
- */
-const checkBackendHealth = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(`${API_URL}/api/health`, { mode: 'cors' });
-        if (!response.ok) return false;
-        const data = await response.json();
-        return data.status === 'ok';
-    } catch (error) {
-        console.error("Backend health check failed:", error);
-        return false;
-    }
-};
-
-/**
- * Creates a payment order session on the backend.
- * @param {object} orderData - Data for creating the order.
- * @returns {Promise<any>} The JSON response from the backend.
- */
-const createPaymentOrder = async (orderData: object): Promise<any> => {
-    const response = await fetch(`${API_URL}/api/create-payment-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-        mode: 'cors',
-    });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create payment order on the backend.');
-    }
-    return response.json();
-};
-
-/**
- * Saves the final registration data to the backend.
- * @param {object} registrationData - The complete form and payment data.
- * @returns {Promise<any>} The JSON response from the backend.
- */
-const saveRegistrationData = async (registrationData: object): Promise<any> => {
-    const response = await fetch(`${API_URL}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registrationData),
-        mode: 'cors',
-    });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save registration data to the server.');
-    }
-    return response.json();
 };
 
 // --- Child Components for each Step ---
@@ -251,29 +180,38 @@ const Step2_TeamDetails = ({ formData, dispatch }: { formData: FormData, dispatc
     );
 };
 
-const Step3_TeamRoster = ({ formData, dispatch }: { formData: FormData, dispatch: React.Dispatch<FormAction> }) => (
-    <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-            <User className="w-6 h-6 mr-3 text-yellow-500" /> Your Team Roster
-        </h2>
-        <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
-        <div className="space-y-8">
-            {Array.from({ length: formData.teamSize }).map((_, index) => (
-                <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Member {index + 1} {index === 0 && '(Team Leader)'}</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <input type="text" value={formData.members[index].fullName} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'fullName', payload: e.target.value })} placeholder="Full Name" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
-                        <select value={formData.members[index].grade} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'grade', payload: e.target.value })} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-200/70" disabled={index > 0}>
-                            <option value="">Select Grade</option><option value="7th">7th</option><option value="8th">8th</option><option value="9th">9th</option>
-                        </select>
-                        <input type="email" value={formData.members[index].email} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'email', payload: e.target.value })} placeholder="Email Address" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
-                        <input type="tel" value={formData.members[index].phoneNumber} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'phoneNumber', payload: e.target.value })} placeholder="Phone Number" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+const Step3_TeamRoster = ({ formData, dispatch }: { formData: FormData, dispatch: React.Dispatch<FormAction> }) => {
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+        const numericValue = e.target.value.replace(/\D/g, '');
+        if (numericValue.length <= 10) {
+            dispatch({ type: 'UPDATE_MEMBER', index, field: 'phoneNumber', payload: numericValue });
+        }
+    };
+    return (
+        <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <User className="w-6 h-6 mr-3 text-yellow-500" /> Your Team Roster
+            </h2>
+            <p className="text-sm text-gray-600 mb-6 -mt-4">The team's grade will be set by the Team Leader.</p>
+            <div className="space-y-8">
+                {Array.from({ length: formData.teamSize }).map((_, index) => (
+                    <div key={index} className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Member {index + 1} {index === 0 && '(Team Leader)'}</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <input type="text" value={formData.members[index].fullName} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'fullName', payload: e.target.value })} placeholder="Full Name" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                            <select value={formData.members[index].grade} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'grade', payload: e.target.value })} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-200/70" disabled={index > 0}>
+                                <option value="">Select Grade</option>
+                                {GRADE_LEVELS.map(grade => <option key={grade} value={grade}>{grade}</option>)}
+                            </select>
+                            <input type="email" value={formData.members[index].email} onChange={e => dispatch({ type: 'UPDATE_MEMBER', index, field: 'email', payload: e.target.value })} placeholder="Email Address" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                            <input type="tel" value={formData.members[index].phoneNumber} onChange={(e) => handlePhoneChange(e, index)} placeholder="10-Digit Phone Number" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500" />
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
-    </div>
-);
+    )
+};
 
 const Step4_Socials = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, setHasFollowed: React.Dispatch<React.SetStateAction<boolean>> }) => (
     <div>
@@ -296,26 +234,14 @@ const Step4_Socials = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, 
     </div>
 );
 
-const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, postPaymentError }: any) => {
-    const paymentDetails = calculateTotal();
-    const pricePerPerson = 499; // Standard price
-
+const Step5_Review = ({ formData, dispatch, validationError }: { formData: FormData, dispatch: React.Dispatch<FormAction>, validationError: string }) => {
     return (
         <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CreditCard className="w-6 h-6 mr-3 text-yellow-500" /> Registration Fee & Payment</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CheckCircle className="w-6 h-6 mr-3 text-yellow-500" /> Review & Submit</h2>
             <div className="space-y-6">
-                {postPaymentError && <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex items-start"><AlertTriangle className='h-5 w-5 mr-3 flex-shrink-0' /><p><span className="font-bold">Payment Error:</span> {postPaymentError}</p></div>}
-
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
-                    <div className="space-y-3 text-gray-700">
-                        <div className="flex justify-between"><span>Team of {formData.teamSize} × ₹{pricePerPerson}</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
-                        <hr className="my-2" />
-                        <div className="flex justify-between font-semibold"><span>Subtotal</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Platform Fee (5%)</span><span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span></div>
-                        <hr className="my-2 border-t-2 border-gray-300" />
-                        <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2"><span>Total Amount Due</span><span>₹{paymentDetails.total.toFixed(2)}</span></div>
-                    </div>
+                 <div className="bg-white p-6 rounded-lg border border-gray-200 text-center">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">You're all set!</h3>
+                    <p className="text-gray-600">Please review your information on the previous pages. Once you're ready, agree to the rules and submit your registration.</p>
                 </div>
                 <div className="flex items-start p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <input type="checkbox" id="agreeRules" checked={formData.agreedToRules} onChange={e => dispatch({ type: 'UPDATE_FIELD', field: 'agreedToRules', payload: e.target.checked })} className="mt-1 mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500" />
@@ -327,16 +253,12 @@ const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, po
     )
 };
 
-const RegistrationSuccess = ({ finalPaymentInfo }: { finalPaymentInfo: { teamName: string, paymentId: string } }) => (
+const RegistrationSuccess = ({ teamName }: { teamName: string }) => (
     <div className="min-h-screen bg-gradient-to-b from-white via-green-50 to-gray-100 py-32 font-sans flex items-center justify-center">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center bg-white p-10 rounded-2xl shadow-xl max-w-lg mx-auto">
             <PartyPopper className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Complete!</h1>
-            <p className="text-gray-700 mb-4">Congratulations, <strong>{finalPaymentInfo.teamName}</strong>! Your team is officially registered for InnovateX25.</p>
-            <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-800">
-                <p>Your Payment ID is:</p>
-                <p className="font-mono font-semibold mt-1">{finalPaymentInfo.paymentId}</p>
-            </div>
+            <h1 className="text-3xl font-bold text-green-600 mb-2">Registration Submitted!</h1>
+            <p className="text-gray-700 mb-4">Congratulations, <strong>{teamName}</strong>! Your team's registration has been received for InnovateX25.</p>
             <p className="text-gray-600 mt-6 text-sm">We've sent a confirmation to your team leader's email. Get ready to innovate!</p>
         </motion.div>
     </div>
@@ -348,172 +270,94 @@ const App = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [validationError, setValidationError] = useState('');
-    const [postPaymentError, setPostPaymentError] = useState('');
     const [registrationComplete, setRegistrationComplete] = useState(false);
-    const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
+    const [finalTeamName, setFinalTeamName] = useState('');
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
-    const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-    const [sdkStatus, setSdkStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-    useEffect(() => {
-        const initializeServices = async () => {
-            setBackendStatus('checking');
-            const isBackendOnline = await checkBackendHealth();
-            setBackendStatus(isBackendOnline ? 'online' : 'offline');
-
-            if (isBackendOnline) {
-                setSdkStatus('loading');
-                try {
-                    await loadCashfreeSDK();
-                    console.log('Cashfree SDK loaded successfully.');
-                    setSdkStatus('ready');
-                } catch (error) {
-                    console.error('Failed to initialize payment SDK:', error);
-                    setValidationError((error as Error).message);
-                    setSdkStatus('error');
+    const validateStep = useCallback((step: number): { isValid: boolean; message: string } => {
+        switch (step) {
+            case 1:
+                if (formData.teamName.trim().length < 3) {
+                    return { isValid: false, message: "Please enter a team name (at least 3 characters)." };
                 }
-            } else {
-                setValidationError('Could not connect to the server. Please try again later.');
-                setSdkStatus('error');
-            }
-        };
-        initializeServices();
-    }, []);
+                return { isValid: true, message: "" };
+            case 2:
+                if (formData.interests.length === 0 && formData.otherInterest.trim() === '') {
+                    return { isValid: false, message: "Please select at least one interest." };
+                }
+                if (formData.superpower.trim().length < 10) {
+                    return { isValid: false, message: "Please describe your superpower (at least 10 characters)." };
+                }
+                return { isValid: true, message: "" };
+            case 3:
+            case 5: // Case 5 runs all validations up to this point
+                for (let i = 0; i < formData.teamSize; i++) {
+                    const member = formData.members[i];
+                    if (member.fullName.trim().length < 3) return { isValid: false, message: `Please enter a full name for Member ${i + 1}.` };
+                    if (!member.grade) return { isValid: false, message: `Please select a grade for Member ${i + 1}.` };
+                    if (!emailRegex.test(member.email)) return { isValid: false, message: `Please enter a valid email for Member ${i + 1}.` };
+                    if (!phoneRegex.test(member.phoneNumber)) return { isValid: false, message: `Please enter a valid 10-digit phone number for Member ${i + 1}.` };
+                }
+                if (step === 5 && !hasFollowedInstagram) {
+                     return { isValid: false, message: "Please confirm you've followed on Instagram (Step 4)." };
+                }
+                if (step === 5 && !formData.agreedToRules) {
+                    return { isValid: false, message: "You must agree to the rules to proceed." };
+                }
+                return { isValid: true, message: "" };
 
-    const calculateTotal = useCallback(() => {
-        const basePrice = 499; // Standard price
-        const platformFeeRate = 0.05;
-        const subtotal = basePrice * formData.teamSize;
-        const platformFee = subtotal * platformFeeRate;
-        const total = subtotal + platformFee;
-        return { subtotal, platformFee, total };
-    }, [formData.teamSize]);
+            case 4:
+                if (!hasFollowedInstagram) {
+                    return { isValid: false, message: "Please follow us on Instagram to stay updated!" };
+                }
+                return { isValid: true, message: "" };
 
-
-    const handlePayment = async () => {
-        const leader = formData.members[0];
-
-        // Basic validation
-        if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
-            setValidationError("Team Leader's details are incomplete. Please go back and fill them out.");
-            setCurrentStep(3);
-            return;
+            default:
+                return { isValid: false, message: "An unknown error occurred." };
         }
-        if (backendStatus !== 'online') {
-            setValidationError("Payment services are currently unavailable.");
-            return;
-        }
-
-        // State-based check for SDK readiness
-        if (sdkStatus !== 'ready') {
-            setValidationError("Payment gateway is not ready. This could be due to a network issue or an ad-blocker. Please wait a moment or try refreshing the page.");
-            return;
-        }
-
-        // FINAL SAFEGUARD: Double-check for the cashfree object directly before use to prevent crashes.
-        if (typeof (window as any).cashfree !== 'object' || typeof (window as any).cashfree.Cashfree !== 'function') {
-            setValidationError("Payment components are still initializing. Please wait a few seconds and try again.");
-            // Attempt to re-initialize in case of a glitch
-            if (sdkStatus !== 'loading') {
-                setSdkStatus('loading');
-                loadCashfreeSDK()
-                    .then(() => setSdkStatus('ready'))
-                    .catch(() => setSdkStatus('error'));
+    }, [formData, hasFollowedInstagram]);
+    
+    const handleSubmit = async () => {
+        const finalValidation = validateStep(5);
+        if (!finalValidation.isValid) {
+            setValidationError(finalValidation.message);
+             if (finalValidation.message.includes("Member")) {
+                setCurrentStep(3);
+            } else if (finalValidation.message.includes("Instagram")){
+                 setCurrentStep(4);
             }
             return;
         }
 
         setValidationError('');
-        setPostPaymentError('');
         setIsLoading(true);
 
-        try {
-            // Step 1: Create payment order on backend
-            const paymentDetails = calculateTotal();
-            const orderData = {
-                order_amount: parseFloat(paymentDetails.total.toFixed(2)),
-                customer_details: {
-                    customer_id: `CUST-${Date.now()}`,
-                    customer_email: leader.email,
-                    customer_phone: leader.phoneNumber,
-                    customer_name: leader.fullName,
-                }
-            };
-            const sessionResponse = await createPaymentOrder(orderData);
-            const { payment_session_id, order_id } = sessionResponse;
-            if (!payment_session_id) throw new Error("Failed to create payment session.");
-
-            // Step 2: Define payment callbacks
-            const onSuccess = async (data: any) => {
-                setIsLoading(false);
-                if (data.order && data.order.status === 'PAID') {
-                    const paymentId = data.order.payment_id;
-                    const fullRegistrationData = {
-                        ...formData,
-                        members: formData.members.slice(0, formData.teamSize),
-                        payment_id: paymentId,
-                        order_id: order_id,
-                        total_amount: paymentDetails.total
-                    };
-                    try {
-                        await saveRegistrationData(fullRegistrationData);
-                        setFinalPaymentInfo({ teamName: formData.teamName, paymentId });
-                        setRegistrationComplete(true);
-                    } catch (saveError) {
-                        setPostPaymentError(`Payment successful, but registration could not be saved. Please contact support. Payment ID: ${paymentId}. Error: ${(saveError as Error).message}`);
-                    }
-                } else {
-                    setPostPaymentError("Payment status was not successful. Please contact support.");
-                }
-            };
-            const onFailure = (data: any) => {
-                setIsLoading(false);
-                setPostPaymentError(`Payment failed: ${data.order?.error_text || 'Unknown error'}. Please try again.`);
-            };
-
-            // Step 3: Initialize Cashfree drop-in UI
-            const dropinConfig = {
-                components: ["order-details", "card", "upi", "netbanking"],
-                paymentSessionId: payment_session_id,
-                style: {
-                    theme: "corporate", // "light", "dark", "corporate"
-                    color: "#EAB308" // A yellow that matches the theme
-                },
-                onSuccess,
-                onFailure,
-            };
-
-            const cashfree = new (window as any).cashfree.Cashfree();
-            cashfree.drop(document.getElementById("payment-form"), dropinConfig);
-
-        } catch (error: any) {
-            setValidationError(error.message || "Could not connect to the payment gateway.");
+        // Simulate a form submission
+        setTimeout(() => {
             setIsLoading(false);
-        }
+            setFinalTeamName(formData.teamName);
+            setRegistrationComplete(true);
+            console.log("Form Submitted:", {
+                ...formData,
+                members: formData.members.slice(0, formData.teamSize)
+            });
+        }, 1500);
     };
-
-    const isStepValid = useCallback(() => {
-        switch (currentStep) {
-            case 1: return formData.teamName.trim() !== '';
-            case 2: return (formData.interests.length > 0 || formData.otherInterest.trim() !== '') && formData.superpower.trim() !== '';
-            case 3:
-                for (let i = 0; i < formData.teamSize; i++) {
-                    const member = formData.members[i];
-                    if (!member.fullName.trim() || !member.grade || !member.email.trim().includes('@') || !member.phoneNumber.trim()) return false;
-                }
-                return true;
-            case 4: return hasFollowedInstagram;
-            case 5: return formData.agreedToRules;
-            default: return false;
-        }
-    }, [currentStep, formData, hasFollowedInstagram]);
 
     const nextStep = () => {
-        if (isStepValid()) {
-            if (currentStep < 5) setCurrentStep(currentStep + 1);
+        const validation = validateStep(currentStep);
+        if (validation.isValid) {
+            setValidationError('');
+            if (currentStep < 5) {
+                setCurrentStep(currentStep + 1);
+            }
+        } else {
+            setValidationError(validation.message);
         }
     };
+
     const prevStep = () => {
+        setValidationError(''); // Clear errors when going back
         if (currentStep > 1) setCurrentStep(currentStep - 1);
     };
 
@@ -523,13 +367,13 @@ const App = () => {
             case 2: return <Step2_TeamDetails formData={formData} dispatch={dispatch} />;
             case 3: return <Step3_TeamRoster formData={formData} dispatch={dispatch} />;
             case 4: return <Step4_Socials hasFollowed={hasFollowedInstagram} setHasFollowed={setHasFollowedInstagram} />;
-            case 5: return <Step5_Payment formData={formData} dispatch={dispatch} calculateTotal={calculateTotal} validationError={validationError} postPaymentError={postPaymentError} />;
+            case 5: return <Step5_Review formData={formData} dispatch={dispatch} validationError={validationError}/>;
             default: return null;
         }
     }
 
     if (registrationComplete) {
-        return <RegistrationSuccess finalPaymentInfo={finalPaymentInfo} />;
+        return <RegistrationSuccess teamName={finalTeamName} />;
     }
 
     return (
@@ -538,11 +382,6 @@ const App = () => {
                 <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-600 flex items-center justify-center"><Sparkles className="h-8 w-8 mr-3" />InnovateX25 Registration</h1>
                     <p className="text-gray-600 mt-4 mb-2">Presented by reelhaus.hyd</p>
-                    <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-yellow-200/50 mt-8 max-w-2xl mx-auto">
-                        {backendStatus === 'checking' && <div className="p-3 bg-blue-100 border rounded-lg text-blue-800 text-sm">🔄 Checking backend services...</div>}
-                        {backendStatus === 'offline' && <div className="p-3 bg-red-100 border rounded-lg text-red-800 text-sm">⚠️ Backend services are currently unavailable.</div>}
-                        {backendStatus === 'online' && <div className="p-3 bg-green-100 border rounded-lg text-green-800 text-sm">✅ All systems ready!</div>}
-                    </div>
                 </motion.div>
 
                 <StepIndicator currentStep={currentStep} />
@@ -556,26 +395,19 @@ const App = () => {
                         transition={{ duration: 0.3 }}
                         className="bg-white/60 backdrop-blur-md p-8 rounded-2xl shadow-lg border border-yellow-200/50"
                     >
-                        <div id="payment-form"></div>
                         {renderCurrentStep()}
                     </motion.div>
                 </AnimatePresence>
 
+                {validationError && currentStep !== 5 && <div className="mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-800 rounded-lg text-center font-semibold">{validationError}</div>}
+
                 <div className="flex justify-between mt-8">
                     <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center px-6 py-3 bg-gray-200 rounded-lg font-semibold disabled:opacity-50 hover:bg-gray-300"><ChevronLeft className="w-5 h-5 mr-2" />Previous</button>
                     {currentStep < 5 ? (
-                        <button onClick={nextStep} disabled={!isStepValid()} className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 disabled:opacity-50">Next<ChevronRight className="w-5 h-5 ml-2" /></button>
+                        <button onClick={nextStep} className="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600">Next<ChevronRight className="w-5 h-5 ml-2" /></button>
                     ) : (
-                        <button onClick={handlePayment} disabled={!formData.agreedToRules || isLoading || backendStatus !== 'online' || sdkStatus !== 'ready'} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold w-60 hover:bg-green-600 disabled:opacity-50 transition-colors">
-                            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : (
-                                <>
-                                    {backendStatus !== 'online' ? 'Service Unavailable' :
-                                     sdkStatus === 'loading' ? 'Initializing Payment...' :
-                                     sdkStatus === 'error' ? 'Payment Gateway Error' :
-                                     'Proceed to Payment'}
-                                    <CreditCard className="w-5 h-5 ml-2" />
-                                </>
-                            )}
+                        <button onClick={handleSubmit} disabled={isLoading} className="flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg font-semibold w-60 hover:bg-green-600 disabled:opacity-50 transition-colors">
+                            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : 'Submit Registration'}
                         </button>
                     )}
                 </div>
