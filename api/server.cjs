@@ -1,43 +1,42 @@
-// api/server.js
-import express from 'express';
-import fetch from 'node-fetch';
-import cors from 'cors';
-import serverless from 'serverless-http';
-import dotenv from 'dotenv';
+// This file must be located at /api/server.js
 
-dotenv.config();
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 
-// --- Config ---
-const FRONTEND_URL = process.env.FRONTEND_URL || '*';
-const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
-
-const CASHFREE_API_URL =
-  API_ENV === 'production'
-    ? 'https://api.cashfree.com/pg'
-    : 'https://sandbox.cashfree.com/pg';
+// --- Config (reads from your Vercel Environment Variables) ---
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://rhinnovatex.netlify.app';
 
 // --- Middleware ---
+// This tells your server to accept requests from your Netlify frontend
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
+
 
 // --- Health Route ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+
 // --- Payment Route ---
 app.post('/api/create-payment-order', async (req, res) => {
+  // Your existing payment logic from the original server.js file goes here...
+  // I am copying it from your previous message.
+  const API_ENV = process.env.CASHFREE_API_ENV || 'sandbox';
+  const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
+  const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+  const CASHFREE_API_URL = API_ENV === 'production'
+    ? 'https://api.cashfree.com/pg'
+    : 'https://sandbox.cashfree.com/pg';
+
   try {
     const { order_amount, customer_details } = req.body;
-
     if (!order_amount || !customer_details) {
       return res.status(400).json({ message: 'Missing order details' });
     }
-
     const response = await fetch(`${CASHFREE_API_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -56,19 +55,18 @@ app.post('/api/create-payment-order', async (req, res) => {
         },
       }),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return res.status(response.status).json({ message: errorData.message });
-    }
-
     const data = await response.json();
-    res.json(data);
+    if (!response.ok) {
+      return res.status(response.status).json({ message: data.message || 'Failed to create order' });
+    }
+    res.status(200).json(data);
   } catch (err) {
-    console.error(err);
+    console.error("Error creating payment order:", err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
-// ✅ Export for Vercel
-export const handler = serverless(app);
+
+// --- Export the app for Vercel ---
+// This is the crucial line that allows Vercel to run your Express app
+module.exports = app;
