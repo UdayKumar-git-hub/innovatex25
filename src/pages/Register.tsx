@@ -139,7 +139,7 @@ const Register = () => {
     const registrationData = {
       team_name: formData.teamName,
       team_size: formData.teamSize,
-      challenges: formData.challenges,
+    //  challenges: formData.challenges,
       grade: formData.members[0].grade,
       interests: formData.interests,
       other_interest: formData.otherInterest,
