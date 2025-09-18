@@ -8,13 +8,11 @@ import {
 
 // --- Configuration ---
 
-// NOTE: The VITE_API_URL environment variable could not be read due to the current build configuration ("es2015" target).
-// To connect to a real backend, you can uncomment and set the URL below.
-// const API_URL = "YOUR_BACKEND_API_URL_HERE";
-const API_URL = undefined;
+// Connects to the backend service.
+const API_URL = "https://innovatex25.onrender.com"; 
 
 // The application will run in MOCK_API mode if API_URL is not set.
-const MOCK_API = import.meta.env.VITE_API_URL ;
+const MOCK_API = !API_URL;
 
 
 // --- Type Definitions & Interfaces ---
@@ -116,7 +114,7 @@ const checkBackendHealth = async (): Promise<boolean> => {
         return new Promise(resolve => setTimeout(() => resolve(true), 500));
     }
     try {
-        const response = await fetch(`${API_URL}/api/health`);
+        const response = await fetch(`${API_URL}/api/health`, { mode: 'cors' });
         if (!response.ok) return false;
         const data = await response.json();
         return data.status === 'ok';
@@ -143,6 +141,7 @@ const createPaymentOrder = async (orderData: object): Promise<any> => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
+        mode: 'cors',
     });
 
     if (!response.ok) {
@@ -166,6 +165,7 @@ const saveRegistrationData = async (registrationData: object): Promise<any> => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(registrationData),
+        mode: 'cors',
     });
 
     if (!response.ok) {
