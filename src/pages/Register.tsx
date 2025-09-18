@@ -8,13 +8,16 @@ import {
   ChevronLeft, Check, Star, Mail, Phone, User, Sparkles, PartyPopper, Instagram, Upload, AlertTriangle
 } from 'lucide-react';
 
-// Environment variables
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// ✅ Only declare once, use SupabaseClient type
+console.log("SUPABASE_URL:", SUPABASE_URL);
+console.log("SUPABASE_KEY:", SUPABASE_ANON_KEY ? "Loaded ✅" : "Missing ❌");
+
 let supabase: SupabaseClient | null = null;
 let supabaseError: string | null = null;
+
 
 // Conditionally initialize Supabase
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
