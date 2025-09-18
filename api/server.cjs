@@ -1,7 +1,11 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const cors = require('cors');
-require('dotenv').config();
+// api/server.js
+import express from 'express';
+import fetch from 'node-fetch';
+import cors from 'cors';
+import serverless from 'serverless-http';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 
@@ -67,4 +71,4 @@ app.post('/api/create-payment-order', async (req, res) => {
 });
 
 // ✅ Export for Vercel
-module.exports = require('serverless-http')(app);
+export const handler = serverless(app);
