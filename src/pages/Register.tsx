@@ -8,7 +8,6 @@ import {
 
 // --- Configuration ---
 const API_URL = "https://innovatex25.onrender.com";
-const earlyBirdDeadline = new Date('2025-10-15T23:59:59');
 
 // --- Type Definitions & Interfaces ---
 interface TeamMember {
@@ -297,9 +296,9 @@ const Step4_Socials = ({ hasFollowed, setHasFollowed }: { hasFollowed: boolean, 
     </div>
 );
 
-const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, postPaymentError, isEarlyBirdActive }: any) => {
+const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, postPaymentError }: any) => {
     const paymentDetails = calculateTotal();
-    const pricePerPerson = isEarlyBirdActive ? 449 : 499;
+    const pricePerPerson = 499; // Standard price
 
     return (
         <div>
@@ -307,28 +306,12 @@ const Step5_Payment = ({ formData, dispatch, calculateTotal, validationError, po
             <div className="space-y-6">
                 {postPaymentError && <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex items-start"><AlertTriangle className='h-5 w-5 mr-3 flex-shrink-0' /><p><span className="font-bold">Payment Error:</span> {postPaymentError}</p></div>}
 
-                <AnimatePresence>
-                    {isEarlyBirdActive && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg border border-yellow-300 overflow-hidden"
-                        >
-                            <h3 className="text-lg font-bold text-yellow-800 mb-2 flex items-center"><Sparkles className="w-6 h-6 mr-2" />Early Bird Offer!</h3>
-                            <p className="text-yellow-700 mb-2">Register before <strong>October 15th, 2025</strong> and get a <strong>₹50 discount per team!</strong></p>
-                            <p className="text-yellow-800 font-semibold">Early Bird Price: ₹449 per person (Regular: ₹499)</p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
                 <div className="bg-white p-6 rounded-lg border border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Summary</h3>
                     <div className="space-y-3 text-gray-700">
                         <div className="flex justify-between"><span>Team of {formData.teamSize} × ₹{pricePerPerson}</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
-                        {isEarlyBirdActive && <div className="flex justify-between text-green-600"><span>Early Bird Discount</span><span>- ₹{paymentDetails.teamDiscount.toLocaleString()}</span></div>}
                         <hr className="my-2" />
-                        <div className="flex justify-between font-semibold"><span>Subtotal</span><span>₹{paymentDetails.priceAfterDiscount.toLocaleString()}</span></div>
+                        <div className="flex justify-between font-semibold"><span>Subtotal</span><span>₹{paymentDetails.subtotal.toLocaleString()}</span></div>
                         <div className="flex justify-between"><span>Platform Fee (5%)</span><span>+ ₹{paymentDetails.platformFee.toFixed(2)}</span></div>
                         <hr className="my-2 border-t-2 border-gray-300" />
                         <div className="flex justify-between text-2xl font-bold text-gray-800 mt-2"><span>Total Amount Due</span><span>₹{paymentDetails.total.toFixed(2)}</span></div>
@@ -360,8 +343,7 @@ const RegistrationSuccess = ({ finalPaymentInfo }: { finalPaymentInfo: { teamNam
 );
 
 // --- Main Component ---
-
-const Register = () => {
+const App = () => {
     const [formData, dispatch] = useReducer(formReducer, initialFormData);
     const [currentStep, setCurrentStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
@@ -371,11 +353,9 @@ const Register = () => {
     const [finalPaymentInfo, setFinalPaymentInfo] = useState({ teamName: '', paymentId: '' });
     const [hasFollowedInstagram, setHasFollowedInstagram] = useState(false);
     const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-    const [isEarlyBirdActive, setIsEarlyBirdActive] = useState(false);
 
     useEffect(() => {
         const initializeServices = async () => {
-            setIsEarlyBirdActive(new Date() < earlyBirdDeadline);
             setBackendStatus('checking');
             const isBackendOnline = await checkBackendHealth();
             setBackendStatus(isBackendOnline ? 'online' : 'offline');
@@ -396,21 +376,19 @@ const Register = () => {
     }, []);
 
     const calculateTotal = useCallback(() => {
-        const basePrice = isEarlyBirdActive ? 449 : 499;
-        const teamDiscount = isEarlyBirdActive ? 50 : 0;
+        const basePrice = 499; // Standard price
         const platformFeeRate = 0.05;
         const subtotal = basePrice * formData.teamSize;
-        const priceAfterDiscount = subtotal - teamDiscount;
-        const platformFee = priceAfterDiscount * platformFeeRate;
-        const total = priceAfterDiscount + platformFee;
-        return { subtotal, teamDiscount, priceAfterDiscount, platformFee, total };
-    }, [isEarlyBirdActive, formData.teamSize]);
+        const platformFee = subtotal * platformFeeRate;
+        const total = subtotal + platformFee;
+        return { subtotal, platformFee, total };
+    }, [formData.teamSize]);
 
 
     const handlePayment = async () => {
         const leader = formData.members[0];
 
-        // Step 1: Basic validation
+        // Basic validation
         if (!leader.fullName.trim() || !leader.email.trim().includes('@') || !leader.phoneNumber.trim()) {
             setValidationError("Team Leader's details are incomplete. Please go back and fill them out.");
             setCurrentStep(3);
@@ -421,12 +399,12 @@ const Register = () => {
             return;
         }
 
-        // --- FIX: Check if the Cashfree SDK is loaded *before* doing anything else ---
+        // FIX: Check if the Cashfree SDK is loaded before proceeding.
         // This prevents the "Cannot read properties of undefined (reading 'Cashfree')" error.
         if (typeof (window as any).cashfree !== 'object') {
             setValidationError("Payment gateway is not ready. Please wait a moment and try again or check your ad-blocker.");
-            // Optionally, try to load it again
-            loadCashfreeSDK().catch(err => console.error(err));
+            // Optionally, try to load it again in case of a network glitch
+            loadCashfreeSDK().catch(err => console.error("Failed to re-load Cashfree SDK:", err));
             return;
         }
 
@@ -435,7 +413,7 @@ const Register = () => {
         setIsLoading(true);
 
         try {
-            // Step 2: Create payment order on backend
+            // Step 1: Create payment order on backend
             const paymentDetails = calculateTotal();
             const orderData = {
                 order_amount: parseFloat(paymentDetails.total.toFixed(2)),
@@ -449,8 +427,8 @@ const Register = () => {
             const sessionResponse = await createPaymentOrder(orderData);
             const { payment_session_id, order_id } = sessionResponse;
             if (!payment_session_id) throw new Error("Failed to create payment session.");
-            
-            // Step 3: Define payment callbacks
+
+            // Step 2: Define payment callbacks
             const onSuccess = async (data: any) => {
                 setIsLoading(false);
                 if (data.order && data.order.status === 'PAID') {
@@ -478,7 +456,7 @@ const Register = () => {
                 setPostPaymentError(`Payment failed: ${data.order?.error_text || 'Unknown error'}. Please try again.`);
             };
 
-            // Step 4: Initialize Cashfree drop-in UI
+            // Step 3: Initialize Cashfree drop-in UI
             const dropinConfig = {
                 components: ["order-details", "card", "upi", "netbanking"],
                 paymentSessionId: payment_session_id,
@@ -530,7 +508,7 @@ const Register = () => {
             case 2: return <Step2_TeamDetails formData={formData} dispatch={dispatch} />;
             case 3: return <Step3_TeamRoster formData={formData} dispatch={dispatch} />;
             case 4: return <Step4_Socials hasFollowed={hasFollowedInstagram} setHasFollowed={setHasFollowedInstagram} />;
-            case 5: return <Step5_Payment formData={formData} dispatch={dispatch} calculateTotal={calculateTotal} validationError={validationError} postPaymentError={postPaymentError} isEarlyBirdActive={isEarlyBirdActive} />;
+            case 5: return <Step5_Payment formData={formData} dispatch={dispatch} calculateTotal={calculateTotal} validationError={validationError} postPaymentError={postPaymentError} />;
             default: return null;
         }
     }
@@ -592,4 +570,4 @@ const Register = () => {
     );
 };
 
-export default Register;
+export default App;
