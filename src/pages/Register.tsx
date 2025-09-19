@@ -358,7 +358,7 @@ const Register = () => {
                                         </div>
                                         <div className="text-center">
                                             <p className="text-sm text-gray-600 font-semibold mb-2">Join our WhatsApp</p>
-                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://chat.whatsapp.com/G55e0pL2p6y5bYq3zW7r5g" alt="WhatsApp QR Code" className="rounded-lg shadow-md" />
+                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://chat.whatsapp.com/CZXKNOtt1CFDlfRfUPQjLF?mode=ems_copy_t" alt="WhatsApp QR Code" className="rounded-lg shadow-md" />
                                         </div>
                                     </div>
 
