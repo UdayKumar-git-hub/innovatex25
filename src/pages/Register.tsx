@@ -39,8 +39,8 @@ const Register = () => {
   // Manual Payment State
   const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
   const [transactionId, setTransactionId] = React.useState('');
-  const [qrCodeSrc] = React.useState('https://placehold.co/200x200?text=Scan+to+Pay');
-  const [upiDetails] = React.useState('your_upi_id@bank');
+  const [qrCodeSrc] = React.useState('https://i.postimg.cc/yx8CBxLJ/Whats-App-Image-2025-09-19-at-07-46-31-2821abad.jpg');
+  const [upiDetails] = React.useState('udayl4905-2@okhdfcbank');
 
   const [formData, setFormData] = React.useState({
     teamName: '',
@@ -500,15 +500,32 @@ const Register = () => {
                   <p className="text-gray-700">
                     Follow <a href="https://www.instagram.com/reelhaus.hyd/" target="_blank" rel="noopener noreferrer" className="font-semibold text-yellow-600 hover:underline">@reelhaus.hyd</a> on Instagram for all event updates, announcements, and behind-the-scenes fun!
                   </p>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Scan the QR code to follow us:</p>
-                    <div className="flex justify-center">
-                      <img
-                        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/"
-                        alt="QR code for reelhaus.hyd Instagram"
-                        className="rounded-lg shadow-md"
-                      />
-                    </div>
+                  // --- PASTE THIS NEW CODE IN ITS PLACE ---
+<div className="flex flex-col sm:flex-row items-center justify-center gap-8">
+  {/* Instagram QR Code */}
+  <div className="text-center">
+    <p className="text-sm text-gray-600 font-semibold mb-2">Follow on Instagram</p>
+    <div className="flex justify-center">
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.instagram.com/reelhaus.hyd/"
+        alt="QR code for reelhaus.hyd Instagram"
+        className="rounded-lg shadow-md"
+      />
+    </div>
+  </div>
+
+  {/* WhatsApp QR Code */}
+  <div className="text-center">
+    <p className="text-sm text-gray-600 font-semibold mb-2">Join our WhatsApp</p>
+    <div className="flex justify-center">
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://chat.whatsapp.com/HPHN3ZPYJ1iEQRZGIm9gXb"
+        alt="QR code for WhatsApp Community"
+        className="rounded-lg shadow-md"
+      />
+    </div>
+  </div>
+</div>
                   </div>
                   <div className="flex items-start justify-center p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
                     <input
