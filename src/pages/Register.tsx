@@ -35,8 +35,8 @@ const Register = () => {
     // Manual Payment State
     const [paymentScreenshot, setPaymentScreenshot] = React.useState<File | null>(null);
     const [transactionId, setTransactionId] = React.useState('');
-    const [qrCodeSrc] = React.useState('https://i.postimg.cc/YCdLz11B/Whats-App-Image-2025-09-24-at-21-49-05-7acef098.jpg');
-    const [upiDetails] = React.useState('udayl4905-2@oksbi');
+    const [qrCodeSrc] = React.useState('https://i.postimg.cc/xChXbs7H/hdfc.jpg');
+    const [upiDetails] = React.useState('udayl4905-2@okaxis');
 
     const [formData, setFormData] = React.useState({
         teamName: '',
